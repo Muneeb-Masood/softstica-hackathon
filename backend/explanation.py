@@ -36,7 +36,7 @@ import hashlib
 import json
 import os
 from datetime import datetime
-from typing import List, Optional, TypedDict
+from typing import Dict, List, Optional, Tuple, TypedDict
 
 from dotenv import load_dotenv
 
@@ -44,10 +44,22 @@ load_dotenv()
 
 import google.generativeai as genai
 
-from combined_ranking import RankedAed
+from combined_ranking import ExcludedAed, RankedAed
 
 CACHE_DIR = os.path.join(os.path.dirname(__file__), "cache", "explanations")
 MODEL_NAME = "models/gemini-2.5-flash"
+
+# Phase 9 (time slider): a full-day timeline query has up to 24 hourly
+# rankings for one location. Re-running the top/runner-up explanation for
+# every hour would burn tokens on narrating a ranking that hasn't actually
+# changed -- Sentosa AEDs are almost all 24/7 (CLAUDE.md section 10), so in
+# the common case the #1 pick never changes across the day and one call
+# should cover all 24 hours. EXPLANATION_SEGMENT_CAP bounds the worst case
+# (a location where the #1 pick flips every hour) at a fixed number of real
+# Gemini calls per timeline query, regardless of how messy the underlying
+# hours data turns out to be. Approved design, 2026-08-08 (see chat: "1 call
+# typical, up to 6 worst case").
+EXPLANATION_SEGMENT_CAP = 6
 
 _model_cache: Optional["genai.GenerativeModel"] = None
 
@@ -224,3 +236,113 @@ def generate_explanation(
         json.dump(result, f, indent=2)
 
     return result
+
+
+class HourExplanation(TypedDict):
+    top_explanation: Optional[str]
+    runnerup_explanation: Optional[str]
+    source: Optional[str]  # "gemini", "cache", or None if nothing to explain
+    top_aed_id: Optional[str]
+    segment_start_hour: int
+    segment_end_hour: int
+    capped: bool
+    note: Optional[str]
+
+
+class TimelineExplanationStats(TypedDict):
+    segments: int
+    gemini_calls: int
+    cache_hits: int
+    capped_segments: int
+
+
+_CAPPED_NOTE = (
+    "Ranking changed again in this window, beyond this tool's per-query "
+    "explanation cap. The AEDs and sub-scores above are accurate for this "
+    "hour -- only the narrative explanation text is unavailable here; open "
+    "a fresh query at this specific time for a full explanation."
+)
+
+
+def generate_timeline_explanations(
+    test_lat: float,
+    test_lon: float,
+    hourly: Dict[int, Tuple[datetime, List[RankedAed], List[ExcludedAed]]],
+    cap: int = EXPLANATION_SEGMENT_CAP,
+) -> Tuple[Dict[int, HourExplanation], TimelineExplanationStats]:
+    """
+    Phase 9: resolve one explanation per hour of a rank_combined_timeline()
+    result, without calling Gemini once per hour.
+
+    Groups consecutive hours that share the same #1 AED into segments (a
+    segment boundary is exactly a point where the top pick actually
+    changed). Calls generate_explanation() once per segment, in
+    chronological order, for at most `cap` segments -- each such call
+    already hits explanation.py's own on-disk cache keyed on
+    (lat, lon, test_dt, top/runner-up ids + sub-scores), so a segment whose
+    exact (hour, sub-scores) combination was explained in a prior query
+    costs zero new Gemini tokens.
+
+    Segments beyond the cap do NOT reuse a prior segment's explanation text
+    -- that text names a specific AED (e.g. "Beach Arrival Plaza is the top
+    pick..."), and reusing it verbatim for a capped hour whose actual #1 is
+    a *different* AED would have the narrative contradict the ranked card
+    it sits next to. Instead capped hours get top_explanation/
+    runnerup_explanation=None and a generic note (no AED name) explaining
+    why no narrative text is shown for this hour; the sub-scores (which are
+    always freshly computed per hour, capping only affects Gemini text)
+    stay fully accurate and visible regardless.
+    """
+    hours_sorted = sorted(hourly.keys())
+
+    segments: List[dict] = []
+    for h in hours_sorted:
+        _, ranked, _ = hourly[h]
+        top_id = ranked[0]["aed_id"] if ranked else None
+        if segments and segments[-1]["top_id"] == top_id:
+            segments[-1]["end"] = h
+        else:
+            segments.append({"start": h, "end": h, "top_id": top_id})
+
+    explanations_by_hour: Dict[int, HourExplanation] = {}
+    stats: TimelineExplanationStats = {
+        "segments": len(segments),
+        "gemini_calls": 0,
+        "cache_hits": 0,
+        "capped_segments": 0,
+    }
+
+    for i, seg in enumerate(segments):
+        start_h = seg["start"]
+        test_dt, ranked, _excluded = hourly[start_h]
+
+        if seg["top_id"] is None:
+            # No candidates this segment (e.g. everything closed/unreachable)
+            # -- nothing to narrate, don't fabricate an explanation for it.
+            exp = None
+            capped = False
+        elif i < cap:
+            exp = generate_explanation(test_lat, test_lon, test_dt, ranked)
+            if exp["source"] == "gemini":
+                stats["gemini_calls"] += 1
+            else:
+                stats["cache_hits"] += 1
+            capped = False
+        else:
+            exp = None
+            capped = True
+            stats["capped_segments"] += 1
+
+        for h in range(seg["start"], seg["end"] + 1):
+            explanations_by_hour[h] = HourExplanation(
+                top_explanation=exp["top_explanation"] if exp else None,
+                runnerup_explanation=exp["runnerup_explanation"] if exp else None,
+                source=exp["source"] if exp else ("capped" if capped else None),
+                top_aed_id=seg["top_id"],
+                segment_start_hour=seg["start"],
+                segment_end_hour=seg["end"],
+                capped=capped,
+                note=_CAPPED_NOTE if capped else None,
+            )
+
+    return explanations_by_hour, stats

@@ -21,10 +21,16 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from combined_ranking import rank_combined
+from combined_ranking import rank_combined, rank_combined_timeline
 from distance_ranking import load_aeds, load_walk_graph
-from explanation import generate_explanation
+from explanation import generate_explanation, generate_timeline_explanations
 from trust_score import score_aed_properties
+
+DISCLAIMER = (
+    "This is a simulation/preparedness tool using historical registry "
+    "data. It does not reflect live AED availability, working "
+    "condition, or real-time emergency guidance."
+)
 
 app = FastAPI(title="AED Discovery & Routing (Sentosa Prototype)")
 
@@ -120,9 +126,59 @@ def rank(req: RankRequest):
         "ranked": ranked,
         "excluded": excluded,
         "explanations": explanations,
-        "disclaimer": (
-            "This is a simulation/preparedness tool using historical registry "
-            "data. It does not reflect live AED availability, working "
-            "condition, or real-time emergency guidance."
-        ),
+        "disclaimer": DISCLAIMER,
+    }
+
+
+class TimelineRequest(BaseModel):
+    lat: float
+    lon: float
+    date: str  # YYYY-MM-DD
+
+
+def _parse_test_date(date_str: str):
+    try:
+        return datetime.strptime(date_str, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=422, detail="date must be YYYY-MM-DD")
+
+
+@app.post("/rank/timeline")
+def rank_timeline(req: TimelineRequest):
+    """
+    Phase 9 (time slider): rank_combined for every hour of one day at a
+    fixed test location, precomputed in one call so the frontend slider can
+    swap between hours instantly with no per-drag network round trip.
+
+    Explanations are NOT regenerated for every hour -- see
+    explanation.generate_timeline_explanations: one Gemini call per segment
+    where the #1 AED actually changes, capped at EXPLANATION_SEGMENT_CAP
+    real calls per query. `stats` reports exactly how many Gemini calls
+    vs. cache hits this query made, for transparency on token cost.
+    """
+    test_date = _parse_test_date(req.date)
+
+    hourly = rank_combined_timeline(req.lat, req.lon, test_date)
+    explanations_by_hour, stats = generate_timeline_explanations(req.lat, req.lon, hourly)
+
+    hours_payload = []
+    for h in sorted(hourly.keys()):
+        test_dt, ranked, excluded = hourly[h]
+        hours_payload.append({
+            "hour": h,
+            "time": test_dt.strftime("%H:%M"),
+            "ranked": ranked,
+            "excluded": excluded,
+            "explanation": explanations_by_hour[h],
+        })
+
+    return {
+        "query": {
+            "lat": req.lat,
+            "lon": req.lon,
+            "date": req.date,
+        },
+        "hours": hours_payload,
+        "stats": stats,
+        "disclaimer": DISCLAIMER,
     }

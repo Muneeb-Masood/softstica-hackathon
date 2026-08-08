@@ -69,8 +69,8 @@ not the same claim as "we know it's shut", and excluding it would guess.
 """
 
 import math
-from datetime import datetime
-from typing import List, Optional, Tuple, TypedDict
+from datetime import date as date_type, datetime, time as time_type
+from typing import Dict, List, Optional, Tuple, TypedDict
 
 from distance_ranking import (
     compute_snap_collision_confidence,
@@ -134,10 +134,41 @@ def rank_combined(
     if graph is None:
         graph = load_walk_graph()
 
+    walking_by_id, distance_confidence_by_id = _shared_geometry(test_lat, test_lon, aeds, graph)
+    return _combine_for_datetime(test_dt, aeds, walking_by_id, distance_confidence_by_id)
+
+
+def _shared_geometry(
+    test_lat: float,
+    test_lon: float,
+    aeds: List[dict],
+    graph: "object",
+) -> Tuple[dict, dict]:
+    """
+    The two sub-scores that depend only on test location + AED coordinates,
+    not on date/time: walking time/distance and snap-collision confidence.
+    Computed once and reused across every hour in a Phase 9 timeline query,
+    since re-running shortest-path search 24x for a fixed location would be
+    pure waste -- only hours_confidence actually varies by time.
+    """
     walking = rank_by_walking_time(test_lat, test_lon, aeds=aeds, graph=graph)
     walking_by_id = {r["aed_id"]: r for r in walking}
     distance_confidence_by_id = compute_snap_collision_confidence(aeds, graph)
+    return walking_by_id, distance_confidence_by_id
 
+
+def _combine_for_datetime(
+    test_dt: datetime,
+    aeds: List[dict],
+    walking_by_id: dict,
+    distance_confidence_by_id: dict,
+) -> Tuple[List[RankedAed], List[ExcludedAed]]:
+    """
+    The time-dependent half of rank_combined: hours parsing at test_dt, plus
+    combining with the (already-computed) walking/distance-confidence/trust
+    sub-scores into a final_score. Factored out so a Phase 9 timeline query
+    can call this once per hour without repeating the expensive geometry.
+    """
     ranked: List[RankedAed] = []
     excluded: List[ExcludedAed] = []
 
@@ -200,3 +231,37 @@ def rank_combined(
 
     ranked.sort(key=lambda r: -r["final_score"])
     return ranked, excluded
+
+
+def rank_combined_timeline(
+    test_lat: float,
+    test_lon: float,
+    test_date: date_type,
+    aeds: Optional[List[dict]] = None,
+    graph: Optional["object"] = None,
+    hours: Optional[List[int]] = None,
+) -> Dict[int, Tuple[datetime, List[RankedAed], List[ExcludedAed]]]:
+    """
+    Phase 9: rank_combined for every hour of one day at a fixed test
+    location, without repeating the walking/distance-confidence geometry
+    per hour -- only hours_confidence (and therefore the combined score and
+    ranking order) actually depends on the hour.
+
+    Returns {hour: (test_dt, ranked, excluded)} for hour in `hours`
+    (default 0..23).
+    """
+    if aeds is None:
+        aeds = load_aeds()
+    if graph is None:
+        graph = load_walk_graph()
+    if hours is None:
+        hours = list(range(24))
+
+    walking_by_id, distance_confidence_by_id = _shared_geometry(test_lat, test_lon, aeds, graph)
+
+    result: Dict[int, Tuple[datetime, List[RankedAed], List[ExcludedAed]]] = {}
+    for h in hours:
+        test_dt = datetime.combine(test_date, time_type(hour=h))
+        ranked, excluded = _combine_for_datetime(test_dt, aeds, walking_by_id, distance_confidence_by_id)
+        result[h] = (test_dt, ranked, excluded)
+    return result

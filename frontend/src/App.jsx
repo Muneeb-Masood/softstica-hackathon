@@ -3,7 +3,8 @@ import MapView from "./MapView";
 import DisclaimerBanner from "./DisclaimerBanner";
 import QueryControls from "./QueryControls";
 import ResultsPanel from "./ResultsPanel";
-import { fetchAeds, fetchRanking } from "./api";
+import TimeSlider from "./TimeSlider";
+import { fetchAeds, fetchRanking, fetchTimeline } from "./api";
 import { BADGE_COLORS } from "./trustBadge";
 import "./App.css";
 
@@ -25,16 +26,64 @@ function App() {
   const [rankLoading, setRankLoading] = useState(false);
   const [rankError, setRankError] = useState(null);
 
+  const [timeline, setTimeline] = useState(null);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineError, setTimelineError] = useState(null);
+  const [sliderHour, setSliderHour] = useState(() => Number(nowTimeStr().slice(0, 2)));
+
   useEffect(() => {
     fetchAeds()
       .then((data) => setAeds(data.aeds))
       .catch((err) => setLoadError(err.message));
   }, []);
 
+  // Phase 9: precompute all 24 hourly rankings for the current location/date
+  // the moment either changes -- this is cheap local computation, capped
+  // Gemini explanation cost (see backend/explanation.py), so it's safe to
+  // run automatically rather than waiting for the user to touch the slider.
+  useEffect(() => {
+    if (!testPoint) return;
+    let cancelled = false;
+
+    async function run() {
+      if (cancelled) return;
+      setTimelineLoading(true);
+      setTimelineError(null);
+      try {
+        const data = await fetchTimeline({ lat: testPoint.lat, lon: testPoint.lon, date });
+        if (cancelled) return;
+        setTimeline(data);
+        setSliderHour(Number(time.slice(0, 2)));
+      } catch (err) {
+        if (!cancelled) setTimelineError(err.message);
+      } finally {
+        if (!cancelled) setTimelineLoading(false);
+      }
+    }
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [testPoint, date, time]);
+
+  const sliderHourData = timeline?.hours.find((h) => h.hour === sliderHour) ?? null;
+  const sliderRanking = sliderHourData && {
+    ranked: sliderHourData.ranked,
+    excluded: sliderHourData.excluded,
+    explanations: sliderHourData.explanation && {
+      top_explanation: sliderHourData.explanation.top_explanation,
+      runnerup_explanation: sliderHourData.explanation.runnerup_explanation,
+      note: sliderHourData.explanation.note,
+    },
+  };
+
   const handlePickLocation = (lat, lon) => {
     setTestPoint({ lat, lon });
     setRanking(null);
     setRankError(null);
+    setTimeline(null);
+    setTimelineError(null);
   };
 
   const handleRank = async () => {
@@ -72,6 +121,17 @@ function App() {
             submitting={rankLoading}
           />
           <ResultsPanel ranking={ranking} loading={rankLoading} error={rankError} />
+
+          <TimeSlider
+            timeline={timeline}
+            loading={timelineLoading}
+            error={timelineError}
+            hour={sliderHour}
+            onHourChange={setSliderHour}
+          />
+          {timeline && (
+            <ResultsPanel ranking={sliderRanking} loading={false} error={null} />
+          )}
         </aside>
 
         <div id="map-wrap">

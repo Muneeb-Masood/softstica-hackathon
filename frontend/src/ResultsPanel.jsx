@@ -9,7 +9,7 @@ function TrustPill({ badge }) {
   );
 }
 
-function RankedCard({ rank, aed, explanation }) {
+function RankedCard({ rank, aed, explanation, note }) {
   return (
     <div className="result-card">
       <div className="result-card-head">
@@ -25,6 +25,7 @@ function RankedCard({ rank, aed, explanation }) {
         <span>Score: {aed.final_score.toFixed(3)}</span>
       </div>
       {explanation && <p className="result-explanation">{explanation}</p>}
+      {note && <p className="result-explanation-note">{note}</p>}
     </div>
   );
 }
@@ -73,6 +74,7 @@ export default function ResultsPanel({ ranking, loading, error }) {
               ? explanations?.runnerup_explanation
               : null
           }
+          note={i === 0 ? explanations?.note : null}
         />
       ))}
 

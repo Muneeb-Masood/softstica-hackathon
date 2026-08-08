@@ -18,3 +18,16 @@ export async function fetchRanking({ lat, lon, date, time }) {
   }
   return res.json();
 }
+
+export async function fetchTimeline({ lat, lon, date }) {
+  const res = await fetch(`${API_BASE}/rank/timeline`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ lat, lon, date }),
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`POST /rank/timeline failed: ${res.status} ${detail}`);
+  }
+  return res.json();
+}
