@@ -77,9 +77,10 @@ function App() {
   const sliderRanking = sliderHourData && {
     ranked: sliderHourData.ranked,
     excluded: sliderHourData.excluded,
+    query: testPoint && { lat: testPoint.lat, lon: testPoint.lon, date, time: sliderHourData.time },
     explanations: sliderHourData.explanation && {
       top_explanation: sliderHourData.explanation.top_explanation,
-      runnerup_explanation: sliderHourData.explanation.runnerup_explanation,
+      comparisons: sliderHourData.explanation.comparisons,
       note: sliderHourData.explanation.note,
     },
   };

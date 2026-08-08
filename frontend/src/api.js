@@ -38,6 +38,16 @@ export async function fetchNeedsVerification() {
   return res.json();
 }
 
+export async function fetchAedDetail({ aedId, lat, lon, date, time }) {
+  const params = new URLSearchParams({ lat, lon, date, time });
+  const res = await fetch(`${API_BASE}/aed/${encodeURIComponent(aedId)}/detail?${params}`);
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`GET /aed/${aedId}/detail failed: ${res.status} ${detail}`);
+  }
+  return res.json();
+}
+
 export async function fetchCrowdSimulation({ buildingName, date, time, nPerSide }) {
   const res = await fetch(`${API_BASE}/crowd-simulation`, {
     method: "POST",

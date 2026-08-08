@@ -24,7 +24,7 @@ from pydantic import BaseModel
 from combined_ranking import rank_combined, rank_combined_timeline
 from crowd_simulation import run_crowd_simulation
 from distance_ranking import load_aeds, load_walk_graph
-from explanation import generate_explanation, generate_timeline_explanations
+from explanation import generate_aed_detail, generate_explanation, generate_timeline_explanations
 from trust_score import explain_trust_score, score_aed_properties
 
 DISCLAIMER = (
@@ -172,7 +172,7 @@ def rank(req: RankRequest):
         exp = generate_explanation(req.lat, req.lon, test_dt, ranked)
         explanations = {
             "top_explanation": exp["top_explanation"],
-            "runnerup_explanation": exp["runnerup_explanation"],
+            "comparisons": exp["comparisons"],
             "source": exp["source"],
         }
 
@@ -186,6 +186,41 @@ def rank(req: RankRequest):
         "ranked": ranked,
         "excluded": excluded,
         "explanations": explanations,
+        "disclaimer": DISCLAIMER,
+    }
+
+
+@app.get("/aed/{aed_id}/detail")
+def aed_detail(
+    aed_id: str,
+    lat: float = Query(...),
+    lon: float = Query(...),
+    date: str = Query(...),
+    time: str = Query(...),
+):
+    """
+    Direct, honest lookup for ONE specific AED at a test location/date/time,
+    regardless of where it actually ranks. Reports its real rank position
+    (e.g. "#11 of 64"), its real sub-scores, and a real explanation of why
+    it ranks where it does -- as opposed to /rank's top-5 view, which won't
+    show an AED at all if it doesn't naturally place in the top 5.
+
+    This is the honest way to demo an AED that never lands in a top-5 view
+    for any Sentosa test location (e.g. the one access-barrier-flagged AED,
+    098269-010, whose best rank across all 657 walking-graph nodes swept as
+    test locations is #11 of 64) -- rather than re-slicing it into a top
+    spot it hasn't earned.
+    """
+    test_dt = _parse_test_dt(date, time)
+    ranked, excluded = rank_combined(lat, lon, test_dt)
+    detail = generate_aed_detail(lat, lon, test_dt, ranked, excluded, aed_id)
+
+    if detail["status"] == "not_found":
+        raise HTTPException(status_code=404, detail=f"AED_ID {aed_id!r} not found in the Sentosa dataset.")
+
+    return {
+        "query": {"lat": lat, "lon": lon, "date": date, "time": time},
+        "detail": detail,
         "disclaimer": DISCLAIMER,
     }
 

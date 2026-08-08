@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { badgeColor } from "./trustBadge";
 import { formatPercent, formatWalkingTime, HOURS_STATUS_LABEL } from "./format";
+import { fetchAedDetail } from "./api";
 
 function TrustPill({ badge }) {
   return (
@@ -9,9 +11,64 @@ function TrustPill({ badge }) {
   );
 }
 
-function RankedCard({ rank, aed, explanation, note }) {
+// Explanations for #1..#5 arrive pre-fetched in one batch call (see
+// backend/explanation.py generate_explanation). Anything beyond that, or
+// any excluded (closed/unreachable) card, has no pre-fetched text -- the
+// "Why this rank?" button fetches it on demand via /aed/{id}/detail, which
+// works for ANY AED regardless of rank position (see backend AedDetail
+// work: 098269-010 never lands in a top-5 view, so this on-demand lookup
+// is the only honest way to show its justification).
+function preloadedExplanationFor(aed, index, explanations) {
+  if (!explanations) return null;
+  if (index === 0) return explanations.top_explanation ?? null;
+  const match = explanations.comparisons?.find((c) => c.aed_id === aed.aed_id);
+  return match?.explanation ?? null;
+}
+
+function WhyButton({ state, onClick }) {
+  const label = state?.loading
+    ? "Loading…"
+    : state?.expanded
+    ? "Hide justification"
+    : "Why this rank?";
   return (
-    <div className="result-card">
+    <button
+      type="button"
+      className="why-button"
+      onClick={onClick}
+      disabled={state?.loading}
+    >
+      {label}
+    </button>
+  );
+}
+
+function ExplanationBlock({ state, preloadedExplanation }) {
+  if (!state?.expanded) return null;
+  if (state.loading) return <p className="result-explanation">Fetching justification…</p>;
+  if (state.error) return <p className="result-explanation result-explanation-error">Couldn't load justification: {state.error}</p>;
+
+  const text = preloadedExplanation ?? state.explanation;
+  if (!text) return <p className="result-explanation result-explanation-error">No justification text available for this AED.</p>;
+
+  return (
+    <>
+      <p className="result-explanation">{text}</p>
+      {state.rank != null && state.totalRanked != null && (
+        <p className="result-explanation-note">
+          Looked up directly: ranked #{state.rank} of {state.totalRanked} for this location/time.
+        </p>
+      )}
+    </>
+  );
+}
+
+function RankedCard({ rank, aed, index, explanations, note, query, detailState, onToggle }) {
+  const preloadedExplanation = preloadedExplanationFor(aed, index, explanations);
+  const state = detailState[aed.aed_id];
+
+  return (
+    <div className="result-card" style={{ borderLeft: `4px solid ${badgeColor(aed.trust_badge)}` }}>
       <div className="result-card-head">
         <span className="rank-number">#{rank}</span>
         <span className="result-name">{aed.building_name || aed.aed_id}</span>
@@ -24,13 +81,15 @@ function RankedCard({ rank, aed, explanation, note }) {
         <span>Hours confidence: {formatPercent(aed.hours_confidence)}</span>
         <span>Score: {aed.final_score.toFixed(3)}</span>
       </div>
-      {explanation && <p className="result-explanation">{explanation}</p>}
-      {note && <p className="result-explanation-note">{note}</p>}
+      {index === 0 && note && <p className="result-explanation-note">{note}</p>}
+      <WhyButton state={state} onClick={() => onToggle(aed, preloadedExplanation, query)} />
+      <ExplanationBlock state={state} preloadedExplanation={preloadedExplanation} />
     </div>
   );
 }
 
-function ExcludedCard({ aed }) {
+function ExcludedCard({ aed, query, detailState, onToggle }) {
+  const state = detailState[aed.aed_id];
   return (
     <div className="result-card excluded-card">
       <div className="result-card-head">
@@ -43,16 +102,64 @@ function ExcludedCard({ aed }) {
         )}
         {aed.reason === "unreachable" && <span>No path found on the walking network</span>}
       </div>
+      <WhyButton state={state} onClick={() => onToggle(aed, null, query)} />
+      <ExplanationBlock state={state} preloadedExplanation={null} />
     </div>
   );
 }
 
 export default function ResultsPanel({ ranking, loading, error }) {
+  const [detailState, setDetailState] = useState({});
+
   if (loading) return <div className="results-status">Ranking AEDs…</div>;
   if (error) return <div className="results-status results-error">{error}</div>;
   if (!ranking) return null;
 
-  const { ranked, excluded, explanations } = ranking;
+  const { ranked, excluded, explanations, query } = ranking;
+
+  async function handleToggle(aed, preloadedExplanation, q) {
+    const existing = detailState[aed.aed_id];
+    const expanded = !existing?.expanded;
+    setDetailState((prev) => ({
+      ...prev,
+      [aed.aed_id]: { ...prev[aed.aed_id], expanded },
+    }));
+
+    // Already have the text (preloaded from the batch call, or fetched
+    // earlier this session) -- nothing more to do, just toggled visibility.
+    if (preloadedExplanation != null) return;
+    if (existing?.explanation || existing?.loading) return;
+    if (!q) return;
+
+    setDetailState((prev) => ({
+      ...prev,
+      [aed.aed_id]: { ...prev[aed.aed_id], loading: true, error: null },
+    }));
+    try {
+      const data = await fetchAedDetail({
+        aedId: aed.aed_id,
+        lat: q.lat,
+        lon: q.lon,
+        date: q.date,
+        time: q.time,
+      });
+      setDetailState((prev) => ({
+        ...prev,
+        [aed.aed_id]: {
+          ...prev[aed.aed_id],
+          loading: false,
+          explanation: data.detail.explanation,
+          rank: data.detail.rank,
+          totalRanked: data.detail.total_ranked,
+        },
+      }));
+    } catch (err) {
+      setDetailState((prev) => ({
+        ...prev,
+        [aed.aed_id]: { ...prev[aed.aed_id], loading: false, error: err.message },
+      }));
+    }
+  }
 
   return (
     <div id="results-panel">
@@ -66,15 +173,13 @@ export default function ResultsPanel({ ranking, loading, error }) {
         <RankedCard
           key={aed.aed_id}
           rank={i + 1}
+          index={i}
           aed={aed}
-          explanation={
-            i === 0
-              ? explanations?.top_explanation
-              : i === 1
-              ? explanations?.runnerup_explanation
-              : null
-          }
-          note={i === 0 ? explanations?.note : null}
+          explanations={explanations}
+          note={explanations?.note}
+          query={query}
+          detailState={detailState}
+          onToggle={handleToggle}
         />
       ))}
 
@@ -84,7 +189,15 @@ export default function ResultsPanel({ ranking, loading, error }) {
       {excluded.length === 0 ? (
         <div className="results-status">None excluded for this query.</div>
       ) : (
-        excluded.map((aed) => <ExcludedCard key={aed.aed_id} aed={aed} />)
+        excluded.map((aed) => (
+          <ExcludedCard
+            key={aed.aed_id}
+            aed={aed}
+            query={query}
+            detailState={detailState}
+            onToggle={handleToggle}
+          />
+        ))
       )}
     </div>
   );

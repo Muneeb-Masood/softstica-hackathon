@@ -102,7 +102,7 @@ def run():
             failures.append(f"hour {h}: top_aed_id mismatch ({exp['top_aed_id']} != {true_top_id})")
 
         if exp["capped"]:
-            if exp["top_explanation"] is not None or exp["runnerup_explanation"] is not None:
+            if exp["top_explanation"] is not None or exp["comparisons"]:
                 failures.append(f"hour {h}: capped but explanation text is non-null (name-mismatch risk)")
             if not exp["note"]:
                 failures.append(f"hour {h}: capped but no note shown to the user")
