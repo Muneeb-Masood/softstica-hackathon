@@ -144,7 +144,10 @@ Each phase should be working and testable before moving to the next. Do not star
   - +1 if `AED_LOCATION_FLOOR_LEVEL` is present
   - +1 if `AED_LOCATION_DESCRIPTION` contains a concrete landmark word (kiosk, entrance, lift, staircase, shop name, etc.)
   - -1 if the description only has vague directional words (near, opposite, beside) with no concrete anchor
-  - +1 if `OPERATING_HOURS` parsed cleanly in Phase 2, -1 if it did not
+  - `OPERATING_HOURS` parsing (from Phase 2's confidence score):
+    - +1 if confidence = 1.0 (parsed cleanly)
+    - 0 if confidence = 0.5 (partially parsed — some segments matched, others in the same string were unparseable)
+    - -1 if confidence = 0.0 (fully unparseable)
 - Map the total score to a badge: High / Medium / Needs Verification
 - Store this score alongside each AED record
 
