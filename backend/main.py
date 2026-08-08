@@ -25,7 +25,7 @@ from combined_ranking import rank_combined, rank_combined_timeline
 from crowd_simulation import run_crowd_simulation
 from distance_ranking import load_aeds, load_walk_graph
 from explanation import generate_explanation, generate_timeline_explanations
-from trust_score import score_aed_properties
+from trust_score import explain_trust_score, score_aed_properties
 
 DISCLAIMER = (
     "This is a simulation/preparedness tool using historical registry "
@@ -100,6 +100,65 @@ def get_aeds():
             "trust_badge": trust["badge"],
         })
     return {"count": len(result), "aeds": result}
+
+
+@app.get("/aeds/needs-verification")
+def get_needs_verification():
+    """
+    Phase 11 (bonus output): AEDs whose Phase 3 trust score is below High,
+    with plain-language reasons pulled straight from the sub-scores. This is
+    a registry-quality view, not a ranking -- it exists so a survey team
+    knows which records to re-check, independent of any particular test
+    location/date/time.
+
+    Two tiers, kept separate rather than merged into one list:
+      - `items` (badge == "Needs Verification"): has a -1 sub-score, i.e. a
+        genuinely unfindable description or unparseable hours -- a real
+        accessibility risk per the Phase 3 badge design (see
+        trust_score.py). This is the urgent list.
+      - `medium_items` (badge == "Medium"): no -1, just short of a perfect
+        score (e.g. floor level missing). Lower priority, but still
+        surfaced with reasons since the brief's "needing re-verification"
+        wording is broader than the "Needs Verification" badge name alone.
+    """
+    aeds = load_aeds()
+
+    def _to_item(props: dict, trust) -> dict:
+        return {
+            "aed_id": props["AED_ID"],
+            "building_name": props.get("BUILDING_NAME"),
+            "latitude": props["LATITUDE"],
+            "longitude": props["LONGITUDE"],
+            "floor_level": props.get("AED_LOCATION_FLOOR_LEVEL"),
+            "description": props.get("AED_LOCATION_DESCRIPTION"),
+            "operating_hours": props.get("OPERATING_HOURS"),
+            "trust_score": trust["total_score"],
+            "trust_badge": trust["badge"],
+            "reasons": explain_trust_score(props, trust),
+        }
+
+    items = []
+    medium_items = []
+    badge_counts = {"High": 0, "Medium": 0, "Needs Verification": 0}
+    for props in aeds:
+        trust = score_aed_properties(props)
+        badge_counts[trust["badge"]] = badge_counts.get(trust["badge"], 0) + 1
+        if trust["badge"] == "Needs Verification":
+            items.append(_to_item(props, trust))
+        elif trust["badge"] == "Medium":
+            medium_items.append(_to_item(props, trust))
+
+    items.sort(key=lambda item: (item["trust_score"], item["aed_id"]))
+    medium_items.sort(key=lambda item: (item["trust_score"], item["aed_id"]))
+
+    return {
+        "total_aeds": len(aeds),
+        "badge_counts": badge_counts,
+        "needs_verification_count": len(items),
+        "medium_count": len(medium_items),
+        "items": items,
+        "medium_items": medium_items,
+    }
 
 
 @app.post("/rank")

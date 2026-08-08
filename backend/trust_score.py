@@ -53,7 +53,7 @@ segments.
 
 import re
 from datetime import datetime
-from typing import Optional, TypedDict
+from typing import List, Optional, TypedDict
 
 from hours_parser import parse_operating_hours
 
@@ -162,3 +162,43 @@ def score_aed_properties(properties: dict) -> TrustScore:
         description=properties.get("AED_LOCATION_DESCRIPTION"),
         operating_hours=properties.get("OPERATING_HOURS"),
     )
+
+
+def explain_trust_score(properties: dict, trust: TrustScore) -> List[str]:
+    """
+    Plain-language reasons for whichever sub-scores are dragging total_score
+    down (Phase 11: the "needs re-verification" list needs to say *why*, not
+    just show a badge). Only components that are 0 or negative produce a
+    reason -- a maxed-out +1 component isn't a data-quality issue worth
+    surfacing here.
+    """
+    reasons: List[str] = []
+
+    if trust["floor_score"] == 0:
+        reasons.append("Floor level is not recorded in the registry.")
+
+    description = (properties.get("AED_LOCATION_DESCRIPTION") or "").strip()
+    if trust["description_score"] == -1:
+        reasons.append(
+            "Location description relies only on vague directional wording "
+            "(e.g. 'near', 'opposite', 'beside') with no concrete landmark to anchor it."
+        )
+    elif trust["description_score"] == 0:
+        if not description:
+            reasons.append("Location description is blank.")
+        else:
+            reasons.append(
+                "Location description has no recognizable concrete landmark "
+                "or directional wording -- unclear as written."
+            )
+
+    if trust["hours_score"] == -1:
+        reasons.append(
+            "Operating hours could not be parsed at all; open/closed status would show as 'unknown'."
+        )
+    elif trust["hours_score"] == 0:
+        reasons.append(
+            "Operating hours only partially parsed -- part of the string didn't match a recognized pattern."
+        )
+
+    return reasons

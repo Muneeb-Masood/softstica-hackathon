@@ -32,6 +32,12 @@ export async function fetchTimeline({ lat, lon, date }) {
   return res.json();
 }
 
+export async function fetchNeedsVerification() {
+  const res = await fetch(`${API_BASE}/aeds/needs-verification`);
+  if (!res.ok) throw new Error(`GET /aeds/needs-verification failed: ${res.status}`);
+  return res.json();
+}
+
 export async function fetchCrowdSimulation({ buildingName, date, time, nPerSide }) {
   const res = await fetch(`${API_BASE}/crowd-simulation`, {
     method: "POST",

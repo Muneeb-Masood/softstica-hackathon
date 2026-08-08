@@ -5,6 +5,7 @@ import QueryControls from "./QueryControls";
 import ResultsPanel from "./ResultsPanel";
 import TimeSlider from "./TimeSlider";
 import CrowdSimulation from "./CrowdSimulation";
+import NeedsVerification from "./NeedsVerification";
 import { fetchAeds, fetchCrowdSimulation, fetchRanking, fetchTimeline } from "./api";
 import { BADGE_COLORS } from "./trustBadge";
 import "./App.css";
@@ -160,6 +161,8 @@ function App() {
             loading={crowdLoading}
             error={crowdError}
           />
+
+          <NeedsVerification />
         </aside>
 
         <div id="map-wrap">

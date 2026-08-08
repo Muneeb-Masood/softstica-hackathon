@@ -4,7 +4,7 @@
 import json
 from collections import Counter
 
-from trust_score import score_aed_properties
+from trust_score import explain_trust_score, score_aed_properties
 
 GEOJSON_PATH = "sentosa_aeds.geojson"
 
@@ -68,7 +68,27 @@ def run():
               f"(status={score['hours_status']}, confidence={score['hours_confidence']})")
         print(f"  total_score        : {score['total_score']:+d}")
         print(f"  badge              : {score['badge']}")
+        reasons = explain_trust_score(props, score)
+        if reasons:
+            print("  reasons            :")
+            for reason in reasons:
+                print(f"    - {reason}")
         print("-" * 90)
+
+    # Phase 11: sanity-check the "needs re-verification" view -- every
+    # Needs Verification AED must have at least one plain-language reason.
+    print("=" * 90)
+    print("PHASE 11: NEEDS-VERIFICATION REASON COVERAGE")
+    print("=" * 90)
+    missing_reasons = []
+    for props, score in by_badge["Needs Verification"]:
+        reasons = explain_trust_score(props, score)
+        if not reasons:
+            missing_reasons.append(props["AED_ID"])
+    if missing_reasons:
+        print(f"  FAIL: {len(missing_reasons)} Needs Verification AED(s) with no reason: {missing_reasons}")
+    else:
+        print(f"  OK: all {len(by_badge['Needs Verification'])} Needs Verification AED(s) have >=1 reason")
 
 
 if __name__ == "__main__":
