@@ -98,3 +98,45 @@ Pulled directly from `backend/cache/explanations/*.json`:
 4. 098008-003 (top, carries its own uncertainty) / 098008-002 (runner-up): top — *"098008-003 is the top pick — about a 20-second walk. However, its walking distance is an approximation because it shares a mapped street-level access point with other AEDs in the same building, leading to a distance-confidence of 0.33. Its hours and location details are otherwise fully verified."* runner-up — *"098008-002 is tied with the top pick on all metrics: identical walking time, distance confidence, hours confidence, and trust badge."*
 
 All four confirm the tone contract held under a real model call, not just in the hand-written drafts: pick stated first, specific sub-score named for any caveat, no generic hedging language ("may vary", "please verify") anywhere in the output.
+
+## 2026-08-08 — Phase 5 tuning correction: TIME_DECAY_S raised 300 -> 1200
+
+### Problem found during real end-to-end frontend testing (not the synthetic sweeps above)
+
+`time_score = exp(-walking_time_s / TIME_DECAY_S)` with the original `TIME_DECAY_S=300` (5 min) decays to near-zero by ~10-15 minutes of walking time. Past that point, the 0.55-weighted time term stops meaningfully discriminating between candidates, so the ranking is effectively decided by the remaining 0.45 combined weight of distance-confidence/hours-confidence/trust -- backwards for a tool meant to prioritize real accessibility, and outside the scope the original design-review sweeps tested (those sweeps only looked at *near-time-tied* pairs reordering on confidence, at data.gov.sg-adjacent short walks -- never a >2x-longer walk beating a much shorter one).
+
+**Concrete failing example**, query lat=1.25653, lon=103.81503, 2026-08-08 17:15:
+- Sentosa Boardwalk: walking_time_s=2204 (36m44s), trust_badge=High, dist_conf=1.0, hours_conf=1.0 -> ranked **above** Universal Studios Singapore: walking_time_s=982 (16m22s), trust_badge=Medium, dist_conf=1.0, hours_conf=1.0 -- a walk more than twice as long won purely on the trust-badge gap (High vs Medium = the full 0.15*trust_normalized swing).
+
+### Fix
+
+Raised `TIME_DECAY_S` from `300` to `1200` (20-minute half-scale) in `backend/combined_ranking.py`. No other change: same four components, same `0.55/0.15/0.15/0.15` weighting. This keeps walking time meaningfully influential across Sentosa's realistic 5-40 minute walk range instead of flattening out by minute 10-15.
+
+### Re-verified against the exact failing query (same lat/lon/date/time, backend restarted to load the new constant)
+
+Ranked list unchanged in size (61 ranked / 5 excluded -- this was a scoring change only, not a filtering change). The specific pair now orders correctly:
+
+| AED | walking_time_s | trust_badge | final_score | rank |
+|---|---|---|---|---|
+| Universal Studios Singapore | 982 (16m22s) | Medium | 0.6676 | #26 |
+| Sentosa Boardwalk | 2204 (36m44s) | High | 0.5376 | #53 |
+
+Universal Studios now clearly outranks Sentosa Boardwalk. Top-5 for this query under the new constant: Imbiah Station (270s, 0.8891), Tiger Sky Tower (334s, 0.8664), Flower Terrace Station (485s, 0.8171), Imbiah Station (585s, 0.7879), Le Meridien Singapore Sentosa (617s, 0.7789) -- all high-trust, fully-open, monotonically decreasing by walking time, as expected now that time dominates within this range.
+
+### Note for the method card
+
+The "1256 reordering instances" / "~1 minute" figures from the original Phase 5 design-review section above (`### Test case: snap-collision confidence actually reordering a near-tie`) were measured under `TIME_DECAY_S=300`. **Superseded by the re-run below -- use the 2026-08-08 (post-tuning) numbers in the method card, not the original 1256 figure.**
+
+### Snap-collision flip sweep re-run under TIME_DECAY_S=1200 (2026-08-08)
+
+Re-ran the identical methodology from the original design-review sweep (same 657 walking-graph nodes as candidate test points, same Saturday 2026-08-08 14:00, same "6 closest-by-walking-time AEDs per node, all pairs checked, closed/unreachable AEDs excluded via `rank_combined`'s own segregation") with the code as it now stands (`TIME_DECAY_S=1200`), to check whether raising the time constant weakened the confidence terms' ability to reorder near-ties.
+
+**Result: confidence-driven reordering is still very much alive -- and more frequent than before, not less:**
+
+- **1909 total flip pairs** across **398 of 657 nodes** (up from 1256 under the old constant). This direction makes sense: a slower time-decay shrinks the *time_score* gap between walking times that are already close together (a few hundred seconds apart, which is what "6 closest at one point" mostly looks like), so the 0.15-weighted confidence terms have relatively more room to flip those near-ties than they did under the steeper 300s decay.
+- Splitting by cause:
+  - **Pure distance-confidence flips** (hours_confidence and trust tied, only `distance_confidence` differs): **1586 instances**. A full confidence swing outweighs **~120s (2 min) of walking-time difference on average**, up to **236.5s (~3.9 min) at the extreme** -- example: `098008-003` (110.2s walk, dist_conf=0.33, shares its node with 2 others) loses to Le Meridien `098679-002` (346.6s walk, dist_conf=1.0) by score_margin=0.0102, both High trust / hours_confidence=1.0.
+  - **Pure trust-badge flips** (dist_conf and hours tied, only trust differs): **163 instances**, smaller effect -- ~60.6s average, ~101.8s max. Example: two Universal Studios Singapore AEDs, 798.7s (Medium trust) vs. 900.6s (High trust) -- the High-trust one wins despite being ~102s slower.
+- **Across every one of the 1909 flips, the maximum walking-time gap involved was 250.1s (~4.2 min)** -- confirming the fix did not reopen the original bug's failure mode (a >20-minute gap being overridden by trust/confidence alone, as in the Sentosa Boardwalk vs. Universal Studios case above). The confidence terms only ever reorder candidates that are already close in walking time; they no longer have enough relative weight to flip a walk that's many minutes longer, which is exactly the intended effect of raising `TIME_DECAY_S`.
+
+**Conclusion:** raising `TIME_DECAY_S` to 1200 fixed the far-apart pathological case (confidence/trust overriding a >2x-longer walk) while *preserving, and if anything strengthening*, the near-tie reordering behavior the 0.15 weights were designed for. No further weight changes indicated.

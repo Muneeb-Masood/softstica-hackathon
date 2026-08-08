@@ -24,12 +24,20 @@ Verified empirically (findings.md, 2026-08-08) that 0.15 is not too weak to
 matter: a full distance_confidence swing (no collision -> 3-way collision)
 outweighs roughly a minute of walking-time difference in this dataset's
 speed/decay scale, and 1256 such reorderings were found across a sweep of
-all walking-graph nodes as candidate test points.
+all walking-graph nodes as candidate test points. (That "roughly a minute"
+figure was measured under the original TIME_DECAY_S=300; see the 2026-08-08
+tuning note in findings.md for why the constant was later raised to 1200 --
+the qualitative conclusion that 0.15 can reorder near-ties still holds, the
+exact minute-figure was not re-measured under 1200.)
 
-time_score = exp(-walking_time_s / TIME_DECAY_S). TIME_DECAY_S=300s (5 min)
-is a documented planning-level assumption, not a measured or live value --
-it sets the scale at which additional walking time stops mattering much,
-not a claim about real response times.
+time_score = exp(-walking_time_s / TIME_DECAY_S). TIME_DECAY_S=1200s (20 min
+half-scale) is a documented planning-level assumption, not a measured or
+live value -- it sets the scale at which additional walking time stops
+mattering much, not a claim about real response times. Raised from an
+initial 300s (see findings.md, 2026-08-08 tuning note) after real-query
+testing showed 300s let trust/hours/distance-confidence (0.15 weight each,
+0.45 combined) dominate over walking time for any AED beyond ~10-15
+minutes -- backwards for a tool meant to prioritize real accessibility.
 
 hours_confidence is *not* the same number trust_score.py's hours_score is
 built from -- that one scores the OPERATING_HOURS string's parse quality at
@@ -73,7 +81,7 @@ from distance_ranking import (
 from hours_parser import parse_operating_hours
 from trust_score import score_aed_properties
 
-TIME_DECAY_S = 300.0
+TIME_DECAY_S = 1200.0
 W_TIME = 0.55
 W_DIST_CONF = 0.15
 W_HOURS_CONF = 0.15
