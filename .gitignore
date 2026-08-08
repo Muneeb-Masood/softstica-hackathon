@@ -33,3 +33,6 @@ __pycache__/
 
 # Generated cache (osmnx graph downloads, explanation cache)
 backend/cache/
+
+# Local explanation notes, not part of the project
+explain.md
