@@ -30,3 +30,6 @@ venv/
 .venv/
 __pycache__/
 *.pyc
+
+# Generated cache (osmnx graph downloads, explanation cache)
+backend/cache/

@@ -64,7 +64,7 @@ Approximate Sentosa bounding box: longitude 103.815 to 103.825, latitude 1.245 t
 - `osmnx` — download and build the Sentosa walking-network graph from OpenStreetMap
 - `networkx` — shortest-path / walking-time computation on the graph (osmnx depends on this)
 - Plain Python (regex/string rules) — parse `OPERATING_HOURS` into open/closed-by-time logic
-- OpenAI API — used narrowly, only for (a) scoring how vague/clear a location description is, and (b) turning computed scores into a plain-language explanation sentence. Not used for core ranking math.
+- Gemini API — used narrowly, only for (a) scoring how vague/clear a location description is, and (b) turning computed scores into a plain-language explanation sentence. Not used for core ranking math.
 - No database needed. Load the filtered Sentosa GeoJSON into memory at startup. Precompute what can be precomputed (walking graph, trust scores) and cache to local files so the backend does not redo expensive work on every request or every demo run.
 
 **Frontend: React**
@@ -158,17 +158,26 @@ Each phase should be working and testable before moving to the next. Do not star
 - This is the required baseline (straight-line nearest neighbor) plus its improvement (real walking distance) — implement straight-line first as the literal baseline, then walking-distance as the actual submission, and keep both so they can be compared in the evaluation section
 
 ### Phase 5 — Combined ranking
-- Combine walking time, operating-hours confidence (Phase 2), and trust score (Phase 3) into one final ranking score for a given test location, date, and time
-- Decide and document the weighting logic (this becomes part of the method card)
-- Output the ranked list, each with its individual sub-scores visible, not just the final number
+- Combine the following into one final ranking score for a given test location, date, and time:
+  - Walking time (Phase 4)
+  - Walking-distance confidence — discounted when the AED's snapped graph node is shared with other AEDs (Phase 4 finding: ~51.5% of Sentosa AEDs share a nearest-node with at least one other AED; penalty should scale with how many AEDs share that node, e.g. sharing with 3 others is a bigger penalty than sharing with 1)
+  - Operating-hours confidence (Phase 2)
+  - Trust score (Phase 3)
+- Decide and document the weighting logic, including how walking-distance confidence is folded into the final score (this becomes part of the method card)
+- Output the ranked list, each with its individual sub-scores visible, not just the final number — including the walking-distance confidence/penalty, so it's clear when a ranking involves a snap-collision-affected AED
+- Also carry forward the `reachable=False` case from Phase 4 step 5: an unreachable AED should not receive a walking-distance score at all and should be excluded or clearly separated from the ranked list, not silently scored as if reachable
 
 ### Phase 6 — Explanation and runner-up reasoning (Novelty 4)
-- For the top-ranked AED, generate a short plain-language explanation from its sub-scores (templated, or one OpenAI API call, cached, not called live in the demo loop)
-- For the second-ranked AED, generate a one-line comparison against the top pick
+- For the top-ranked AED, generate a short plain-language explanation from its sub-scores (walking time, distance_confidence, hours_confidence, trust score) — templated, or one Gemini API call, cached per unique (test location, date, time) query rather than called live on every request
+- The explanation should surface the most notable sub-score honestly — e.g. if distance_confidence is low due to snap-collision, or hours_confidence is low due to unparseable hours, say so in plain language rather than only praising the winning factors
+- For the second-ranked AED, generate a one-line comparison against the top pick, referencing which specific sub-score(s) explain the gap (e.g. "slightly slower to walk to, but has a fully verified location description")
+- If the top-ranked AED involves any uncertainty (unreachable-adjacent, low trust, or shares a snap node), the explanation must state this plainly — never phrase a low-confidence result as if it were certain
 
 ### Phase 7 — Backend API
 - Wrap Phases 1-6 in FastAPI endpoints, e.g. `POST /rank` taking lat, long, date, time and returning the ranked list with explanations
 - Endpoint to serve the Sentosa AED list with trust badges for map display
+- A basic GET /health endpoint for quick server-up checks during the demo
+- The walking graph and AED data should load once at server startup, not reloaded per-request — confirm startup time is reasonable before moving to Phase 8
 
 ### Phase 8 — Frontend: core flow
 - Map view with `react-leaflet`, showing Sentosa AEDs as pins
