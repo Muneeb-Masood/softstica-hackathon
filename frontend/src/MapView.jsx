@@ -12,7 +12,12 @@ function ClickCatcher({ onPick }) {
   return null;
 }
 
-export default function MapView({ aeds, testPoint, onPickLocation }) {
+export default function MapView({ aeds, testPoint, onPickLocation, crowdResult }) {
+  const bottleneckId = crowdResult?.bottleneck?.aed_id ?? null;
+  const bottleneckAed = bottleneckId
+    ? aeds.find((a) => a.aed_id === bottleneckId)
+    : null;
+
   return (
     <MapContainer center={SENTOSA_CENTER} zoom={16} style={{ height: "100%", width: "100%" }}>
       <TileLayer
@@ -51,6 +56,47 @@ export default function MapView({ aeds, testPoint, onPickLocation }) {
         <Marker position={[testPoint.lat, testPoint.lon]}>
           <Popup>Test location</Popup>
         </Marker>
+      )}
+
+      {crowdResult?.points.map((p, i) => (
+        <CircleMarker
+          key={`crowd-pt-${i}`}
+          center={[p.lat, p.lon]}
+          radius={3}
+          pathOptions={{
+            color: p.winner_aed_id === bottleneckId ? "#e8710a" : "#5f6368",
+            fillColor: p.winner_aed_id === bottleneckId ? "#e8710a" : "#5f6368",
+            fillOpacity: 0.5,
+            weight: 0,
+          }}
+        >
+          <Popup>
+            Simulated point (not a real person)
+            <br />
+            #1 pick: {p.winner_building_name || p.winner_aed_id || "none"}
+          </Popup>
+        </CircleMarker>
+      ))}
+
+      {bottleneckAed && (
+        <CircleMarker
+          center={[bottleneckAed.latitude, bottleneckAed.longitude]}
+          radius={14}
+          pathOptions={{
+            color: "#e8710a",
+            fillColor: "#e8710a",
+            fillOpacity: 0.15,
+            weight: 3,
+          }}
+        >
+          <Popup>
+            <strong>Simulated bottleneck</strong>
+            <br />
+            {bottleneckAed.building_name || bottleneckAed.aed_id}
+            <br />
+            Won {crowdResult.bottleneck.win_count}/{crowdResult.n_points} simulated points
+          </Popup>
+        </CircleMarker>
       )}
     </MapContainer>
   );

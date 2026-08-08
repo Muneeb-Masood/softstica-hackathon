@@ -22,6 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from combined_ranking import rank_combined, rank_combined_timeline
+from crowd_simulation import run_crowd_simulation
 from distance_ranking import load_aeds, load_walk_graph
 from explanation import generate_explanation, generate_timeline_explanations
 from trust_score import score_aed_properties
@@ -182,3 +183,32 @@ def rank_timeline(req: TimelineRequest):
         "stats": stats,
         "disclaimer": DISCLAIMER,
     }
+
+
+class CrowdSimulationRequest(BaseModel):
+    building_name: str = "Universal Studios Singapore"
+    date: str  # YYYY-MM-DD
+    time: str  # HH:MM
+    n_per_side: int = 8  # grid resolution, clamped to [2, 16] in crowd_simulation.py
+
+
+@app.post("/crowd-simulation")
+def crowd_simulation(req: CrowdSimulationRequest):
+    """
+    Phase 10 (Novelty 2): sweep a grid of SIMULATED starting points across
+    one attraction's footprint and tally which AED comes out #1 most often.
+    Not real footfall data -- see crowd_simulation.py and the disclaimer
+    below, which must stay attached to every result shown in the UI.
+    """
+    test_dt = _parse_test_dt(req.date, req.time)
+    result = run_crowd_simulation(req.building_name, test_dt, n_per_side=req.n_per_side)
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No AEDs found matching building_name={req.building_name!r}",
+        )
+    result["disclaimer"] = (
+        "Crowd simulation uses SIMULATED starting points on a grid, not real "
+        "footfall, queue, or incident data. " + DISCLAIMER
+    )
+    return result

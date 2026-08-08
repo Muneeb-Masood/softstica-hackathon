@@ -31,3 +31,21 @@ export async function fetchTimeline({ lat, lon, date }) {
   }
   return res.json();
 }
+
+export async function fetchCrowdSimulation({ buildingName, date, time, nPerSide }) {
+  const res = await fetch(`${API_BASE}/crowd-simulation`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      building_name: buildingName,
+      date,
+      time,
+      n_per_side: nPerSide,
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`POST /crowd-simulation failed: ${res.status} ${detail}`);
+  }
+  return res.json();
+}

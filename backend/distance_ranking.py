@@ -29,18 +29,25 @@ rather than being silently dropped or crashing the ranking.
 
 KNOWN LIMITATION -- indoor/private venue interiors: OSM's pedestrian
 network only covers publicly mapped streets and paths. Large attraction
-interiors (confirmed for Universal Studios Singapore: only 1 of 657
-Sentosa graph nodes falls inside its footprint) have no internal walkway
-data, so every AED coordinate inside such a venue snaps to the same single
-nearest perimeter street node. If the test point is also inside that
-venue, multiple AEDs can degenerately report identical (or near-zero)
-walking distance/time even though they are physically tens to hundreds of
-meters apart inside the building. This is a real data-coverage gap, not a
-bug in the snapping or shortest-path logic -- it should be called out
-explicitly wherever walking-time results are shown for indoor venues, and
-is a legitimate finding for the method card (straight-line ranking can
-appear more "precise" than walking-time ranking purely because the walking
-graph can't see indoor structure, not because it's actually more correct).
+interiors have no internal walkway data, so AED coordinates inside such a
+venue snap to whichever nearby perimeter street node happens to be
+geometrically closest, not to a real internal path. Measured for Universal
+Studios Singapore (backend/test_crowd_simulation.py): only 2 of 657
+Sentosa graph nodes fall inside its own AED bounding box, and its 19 AEDs
+collapse onto just 10 distinct nearest-graph-nodes -- not the same single
+node for all of them (the venue is large enough to have multiple sides
+near different perimeter roads), but far fewer distinct nodes than the 19
+you'd expect if the walking network could see indoor structure. AEDs
+sharing a snap node can degenerately report identical (or near-zero)
+walking distance/time from a test point even though they are physically
+tens of meters apart inside the building. This is a real data-coverage
+gap, not a bug in the snapping or shortest-path logic -- it should be
+called out explicitly wherever walking-time results are shown for indoor
+venues, and is a legitimate finding for the method card (straight-line
+ranking can appear more "precise" than walking-time ranking purely because
+the walking graph can't see indoor structure, not because it's actually
+more correct). Phase 10's crowd simulation surfaces this directly via
+distinct_snap_nodes/indoor_snap_degenerate (see crowd_simulation.py).
 """
 
 import json

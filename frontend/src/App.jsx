@@ -4,7 +4,8 @@ import DisclaimerBanner from "./DisclaimerBanner";
 import QueryControls from "./QueryControls";
 import ResultsPanel from "./ResultsPanel";
 import TimeSlider from "./TimeSlider";
-import { fetchAeds, fetchRanking, fetchTimeline } from "./api";
+import CrowdSimulation from "./CrowdSimulation";
+import { fetchAeds, fetchCrowdSimulation, fetchRanking, fetchTimeline } from "./api";
 import { BADGE_COLORS } from "./trustBadge";
 import "./App.css";
 
@@ -30,6 +31,10 @@ function App() {
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [timelineError, setTimelineError] = useState(null);
   const [sliderHour, setSliderHour] = useState(() => Number(nowTimeStr().slice(0, 2)));
+
+  const [crowdResult, setCrowdResult] = useState(null);
+  const [crowdLoading, setCrowdLoading] = useState(false);
+  const [crowdError, setCrowdError] = useState(null);
 
   useEffect(() => {
     fetchAeds()
@@ -100,6 +105,19 @@ function App() {
     }
   };
 
+  const handleRunCrowdSimulation = async ({ buildingName, date: d, time: t }) => {
+    setCrowdLoading(true);
+    setCrowdError(null);
+    try {
+      const result = await fetchCrowdSimulation({ buildingName, date: d, time: t, nPerSide: 8 });
+      setCrowdResult(result);
+    } catch (err) {
+      setCrowdError(err.message);
+    } finally {
+      setCrowdLoading(false);
+    }
+  };
+
   return (
     <div id="app-shell">
       <header id="app-header">
@@ -132,11 +150,26 @@ function App() {
           {timeline && (
             <ResultsPanel ranking={sliderRanking} loading={false} error={null} />
           )}
+
+          <CrowdSimulation
+            aeds={aeds}
+            date={date}
+            time={time}
+            onRun={handleRunCrowdSimulation}
+            result={crowdResult}
+            loading={crowdLoading}
+            error={crowdError}
+          />
         </aside>
 
         <div id="map-wrap">
           {loadError && <div className="error-banner">Failed to load AEDs: {loadError}</div>}
-          <MapView aeds={aeds} testPoint={testPoint} onPickLocation={handlePickLocation} />
+          <MapView
+            aeds={aeds}
+            testPoint={testPoint}
+            onPickLocation={handlePickLocation}
+            crowdResult={crowdResult}
+          />
           <div className="legend">
             {Object.entries(BADGE_COLORS).map(([label, color]) => (
               <div className="legend-row" key={label}>
