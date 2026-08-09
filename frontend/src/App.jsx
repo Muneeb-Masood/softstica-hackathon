@@ -237,6 +237,7 @@ function App() {
               onTimeChange={setTime}
               onMobilityChange={handleMobilityChange}
               onPaceChange={handlePaceChange}
+              onManualLocation={handlePickLocation}
               onSubmit={handleRank}
               submitting={rankLoading}
             />

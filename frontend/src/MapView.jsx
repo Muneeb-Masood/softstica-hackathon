@@ -1,4 +1,5 @@
-import { CircleMarker, MapContainer, Marker, Polyline, Popup, TileLayer, useMapEvents } from "react-leaflet";
+import { useEffect } from "react";
+import { CircleMarker, MapContainer, Marker, Polyline, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import { badgeColor } from "./trustBadge";
 
 const SENTOSA_CENTER = [1.2525, 103.82];
@@ -9,6 +10,21 @@ function ClickCatcher({ onPick }) {
       onPick(e.latlng.lat, e.latlng.lng);
     },
   });
+  return null;
+}
+
+// Pans to the test point only when it lands outside the current view --
+// a map click is always already on-screen, but a typed lat/lon (the whole
+// point of manual entry) often isn't.
+function PanToTestPoint({ testPoint }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!testPoint) return;
+    const target = [testPoint.lat, testPoint.lon];
+    if (!map.getBounds().contains(target)) {
+      map.flyTo(target, map.getZoom(), { duration: 0.5 });
+    }
+  }, [testPoint, map]);
   return null;
 }
 
@@ -25,6 +41,7 @@ export default function MapView({ aeds, testPoint, onPickLocation, crowdResult, 
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       {onPickLocation && <ClickCatcher onPick={onPickLocation} />}
+      <PanToTestPoint testPoint={testPoint} />
       {aeds.map((aed) => (
         <CircleMarker
           key={aed.aed_id}

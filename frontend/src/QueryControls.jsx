@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 const PACE_MIN = 0.3;
 const PACE_MAX = 2.5;
 const PACE_STEP = 0.01;
@@ -12,20 +14,56 @@ export default function QueryControls({
   onTimeChange,
   onMobilityChange,
   onPaceChange,
+  onManualLocation,
   onSubmit,
   submitting,
 }) {
+  const [latInput, setLatInput] = useState(testPoint ? testPoint.lat.toFixed(6) : "");
+  const [lonInput, setLonInput] = useState(testPoint ? testPoint.lon.toFixed(6) : "");
+
+  // Keep the boxes in sync when the pin moves for any other reason (a map
+  // click) so they never show a stale value next to the live pin.
+  useEffect(() => {
+    if (testPoint) {
+      setLatInput(testPoint.lat.toFixed(6));
+      setLonInput(testPoint.lon.toFixed(6));
+    }
+  }, [testPoint]);
+
+  const applyManualLocation = () => {
+    const lat = parseFloat(latInput);
+    const lon = parseFloat(lonInput);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return;
+    onManualLocation(lat, lon);
+  };
+
   return (
     <>
       <div className="control-row">
         <label>Test location</label>
-        {testPoint ? (
-          <span className="location-value">
-            {testPoint.lat.toFixed(5)}, {testPoint.lon.toFixed(5)}
-          </span>
-        ) : (
-          <span className="location-hint">Click anywhere on the map to set a test location</span>
-        )}
+        <div className="location-inputs">
+          <input
+            type="number"
+            step="0.000001"
+            placeholder="Latitude"
+            value={latInput}
+            onChange={(e) => setLatInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && applyManualLocation()}
+          />
+          <input
+            type="number"
+            step="0.000001"
+            placeholder="Longitude"
+            value={lonInput}
+            onChange={(e) => setLonInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && applyManualLocation()}
+          />
+          <button type="button" className="location-go" onClick={applyManualLocation}>
+            Go
+          </button>
+        </div>
+        <span className="location-hint">Type coordinates and press Go, or click anywhere on the map</span>
       </div>
 
       <div className="control-row">
