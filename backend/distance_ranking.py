@@ -67,12 +67,16 @@ network only covers publicly mapped streets and paths. Large attraction
 interiors have no internal walkway data, so AED coordinates inside such a
 venue snap to whichever nearby perimeter street node happens to be
 geometrically closest, not to a real internal path. Measured for Universal
-Studios Singapore (backend/test_crowd_simulation.py): only 2 of 657
-Sentosa graph nodes fall inside its own AED bounding box, and its 19 AEDs
-collapse onto just 10 distinct nearest-graph-nodes -- not the same single
-node for all of them (the venue is large enough to have multiple sides
-near different perimeter roads), but far fewer distinct nodes than the 19
-you'd expect if the walking network could see indoor structure. AEDs
+Studios Singapore before entrance_augmentation.py existed
+(backend/test_crowd_simulation.py): only 2 of 657 Sentosa graph nodes fell
+inside its own AED bounding box, and its 19 AEDs collapsed onto just 10
+distinct nearest-graph-nodes -- not the same single node for all of them
+(the venue is large enough to have multiple sides near different perimeter
+roads), but far fewer distinct nodes than the 19 you'd expect if the
+walking network could see indoor structure. After entrance_augmentation.py
+(below), those same 19 AEDs snap to 19 distinct nodes -- see MITIGATION.
+The rest of this paragraph still describes the underlying gap for any
+building with no mapped footprint or no AED nearby. AEDs
 sharing a snap node can degenerately report identical (or near-zero)
 walking distance/time from a test point even though they are physically
 tens of meters apart inside the building. This is a real data-coverage
@@ -83,6 +87,21 @@ ranking can appear more "precise" than walking-time ranking purely because
 the walking graph can't see indoor structure, not because it's actually
 more correct). Phase 10's crowd simulation surfaces this directly via
 distinct_snap_nodes/indoor_snap_degenerate (see crowd_simulation.py).
+
+MITIGATION -- entrance augmentation (entrance_augmentation.py): the walk
+graph loaded here (load_walk_graph) is not the raw OSM download but that
+graph plus synthetic "entrance" nodes spaced around the perimeter of every
+building footprint that has an AED near it, each connected to the nearest
+real street node by an estimated edge. This gives points near/inside such
+a building several plausible doors to snap to instead of one, directly
+addressing the brief's "entrances" criterion. It does not fabricate a real
+indoor path or a verified entrance location -- the points are evenly
+spaced guesses around the outline, not surveyed doors -- so any walking
+result whose shortest path uses one of these edges is flagged
+uses_synthetic_entrance=True (see _walk_path/_annotate_graph below), the
+same honesty convention as uses_stairs/crosses_unmarked_road. Buildings
+with no mapped footprint, or no AED nearby, are unaffected and still hit
+the limitation described above.
 """
 
 import json
@@ -93,8 +112,9 @@ from typing import List, Optional, Tuple, TypedDict
 import networkx as nx
 import osmnx as ox
 
+from entrance_augmentation import load_augmented_graph
+
 GEOJSON_PATH = os.path.join(os.path.dirname(__file__), "sentosa_aeds.geojson")
-GRAPH_PATH = os.path.join(os.path.dirname(__file__), "sentosa_walk_graph.graphml")
 
 EARTH_RADIUS_M = 6_371_000.0
 
@@ -191,6 +211,7 @@ class AedWalkingResult(TypedDict):
     uses_stairs: Optional[bool]
     crosses_unmarked_road: Optional[bool]
     uses_permissive_access: Optional[bool]
+    uses_synthetic_entrance: Optional[bool]
     mobility_note: Optional[str]
 
 
@@ -210,11 +231,24 @@ def _highway_has(value, tag: str) -> bool:
     return value == tag
 
 
+def _truthy(value) -> bool:
+    """
+    entrance_augmentation.py tags synthetic edges/nodes with synthetic=True,
+    but a graphml round-trip (save then ox.load_graphml) stringifies custom
+    boolean attributes, so a plain `is True` check would silently always be
+    False after loading from the cached file. Handles both the in-memory
+    bool (fresh build, no round-trip yet) and the "True"/"False" string
+    (loaded from disk).
+    """
+    return value is True or value == "True"
+
+
 def _annotate_graph(graph: "ox.MultiDiGraph") -> None:
     """
     Mutates edge data in place to add the derived route-quality fields
     described in the module docstring: time_s (per-edge walking time,
-    slower on highway=steps), is_steps, is_road_crossing, is_permissive.
+    slower on highway=steps), is_steps, is_road_crossing, is_permissive,
+    is_synthetic (entrance_augmentation.py's estimated entrance edges).
     Idempotent (checked via the "time_s" key) so calling this more than
     once on the same graph object is a no-op.
     """
@@ -228,21 +262,20 @@ def _annotate_graph(graph: "ox.MultiDiGraph") -> None:
         data["is_steps"] = is_steps
         data["is_road_crossing"] = any(_highway_has(highway, t) for t in ROAD_HIGHWAY_TYPES)
         data["is_permissive"] = data.get("access") == "permissive"
+        data["is_synthetic"] = _truthy(data.get("synthetic"))
 
 
 def load_walk_graph() -> "ox.MultiDiGraph":
     """
-    Load the cached Sentosa walking graph from disk (never re-downloads),
-    annotated once with the derived route-quality fields (_annotate_graph).
+    Load the cached Sentosa walking graph (never re-downloads/re-augments
+    live), annotated once with the derived route-quality fields
+    (_annotate_graph). This is the entrance-augmented graph
+    (entrance_augmentation.load_augmented_graph), not the raw OSM download
+    -- see this module's "MITIGATION -- entrance augmentation" docstring.
     """
     global _graph_cache
     if _graph_cache is None:
-        if not os.path.exists(GRAPH_PATH):
-            raise FileNotFoundError(
-                f"{GRAPH_PATH} not found. Run build_walk_graph.py first to "
-                "download and cache the walking network."
-            )
-        _graph_cache = ox.load_graphml(GRAPH_PATH)
+        _graph_cache = load_augmented_graph()
         _annotate_graph(_graph_cache)
     return _graph_cache
 
@@ -271,7 +304,7 @@ def load_wheelchair_graph(graph: Optional["ox.MultiDiGraph"] = None) -> "ox.Mult
     return _wheelchair_graph_cache
 
 
-def _walk_path(graph: "ox.MultiDiGraph", path: List) -> Tuple[float, bool, bool, bool]:
+def _walk_path(graph: "ox.MultiDiGraph", path: List) -> Tuple[float, bool, bool, bool, bool]:
     """
     Walk a shortest-path node sequence, summing real distance and reading
     the OSM-tag-derived route-quality flags off the specific edges Dijkstra
@@ -279,12 +312,14 @@ def _walk_path(graph: "ox.MultiDiGraph", path: List) -> Tuple[float, bool, bool,
     pair, since a MultiDiGraph can carry more than one edge between the
     same two nodes.
 
-    Returns (distance_m, uses_stairs, crosses_unmarked_road, uses_permissive_access).
+    Returns (distance_m, uses_stairs, crosses_unmarked_road,
+    uses_permissive_access, uses_synthetic_entrance).
     """
     distance_m = 0.0
     uses_stairs = False
     crosses_unmarked_road = False
     uses_permissive_access = False
+    uses_synthetic_entrance = False
 
     for u, v in zip(path, path[1:]):
         parallel = graph.get_edge_data(u, v)
@@ -300,8 +335,10 @@ def _walk_path(graph: "ox.MultiDiGraph", path: List) -> Tuple[float, bool, bool,
                 crosses_unmarked_road = True
         if edge.get("is_permissive"):
             uses_permissive_access = True
+        if edge.get("is_synthetic"):
+            uses_synthetic_entrance = True
 
-    return distance_m, uses_stairs, crosses_unmarked_road, uses_permissive_access
+    return distance_m, uses_stairs, crosses_unmarked_road, uses_permissive_access, uses_synthetic_entrance
 
 
 def rank_by_walking_time(
@@ -390,12 +427,13 @@ def rank_by_walking_time(
                     uses_stairs=None,
                     crosses_unmarked_road=None,
                     uses_permissive_access=None,
+                    uses_synthetic_entrance=None,
                     mobility_note=mobility_note,
                 )
             )
         else:
             path = paths[aed_node]
-            distance_m, uses_stairs, crosses_unmarked_road, uses_permissive_access = _walk_path(
+            distance_m, uses_stairs, crosses_unmarked_road, uses_permissive_access, uses_synthetic_entrance = _walk_path(
                 active_graph, path
             )
             ranked.append(
@@ -410,6 +448,7 @@ def rank_by_walking_time(
                     uses_stairs=uses_stairs,
                     crosses_unmarked_road=crosses_unmarked_road,
                     uses_permissive_access=uses_permissive_access,
+                    uses_synthetic_entrance=uses_synthetic_entrance,
                     mobility_note=None,
                 )
             )

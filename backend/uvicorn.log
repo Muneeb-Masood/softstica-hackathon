@@ -1,6 +1,6 @@
 INFO:     Will watch for changes in these directories: ['D:\\softstica_hackathon\\backend']
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process [20456] using StatReload
+INFO:     Started reloader process [20792] using StatReload
 D:\softstica_hackathon\backend\chat_qa.py:47: FutureWarning: 
 
 All support for the `google.generativeai` package has ended. It will no longer be receiving 
@@ -10,28 +10,19 @@ See README for more details:
 https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/README.md
 
   import google.generativeai as genai
-INFO:     Started server process [24332]
+INFO:     Started server process [25716]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     127.0.0.1:52236 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52250 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52240 - "POST /rank HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52250 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52251 - "POST /rank/timeline HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52266 - "POST /rank HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52268 - "POST /chat HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52272 - "GET /aed/098008-002/detail?lat=1.2546604815811069&lon=103.81532786395223&date=2026-08-09&time=20%3A00&mobility=walk HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52803 - "OPTIONS /crowd-simulation HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52803 - "POST /crowd-simulation HTTP/1.1" 404 Not Found
-INFO:     127.0.0.1:52804 - "POST /crowd-simulation HTTP/1.1" 404 Not Found
-INFO:     127.0.0.1:52804 - "POST /crowd-simulation HTTP/1.1" 404 Not Found
-INFO:     127.0.0.1:52816 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52816 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52816 - "OPTIONS /rank/timeline HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52816 - "OPTIONS /rank HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52816 - "POST /rank HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52833 - "POST /crowd-simulation HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52817 - "POST /rank/timeline HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52836 - "POST /crowd-simulation HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52906 - "POST /crowd-simulation HTTP/1.1" 200 OK
-INFO:     127.0.0.1:52912 - "POST /crowd-simulation HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51059 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51063 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51067 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51119 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51119 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51119 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51126 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51126 - "OPTIONS /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51126 - "OPTIONS /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51119 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51126 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51139 - "OPTIONS /crowd-simulation HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51139 - "POST /crowd-simulation HTTP/1.1" 200 OK

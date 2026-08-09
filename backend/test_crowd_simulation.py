@@ -8,11 +8,18 @@ Singapore (the brief's own example attraction) and checks:
   - every simulated point gets a winner (or the run fails loudly, not
     silently)
   - the tally sums to n_points
-  - the "indoor snap degenerate" finding from distance_ranking.py's
-    docstring (USS's interior has almost no mapped walking nodes, so grid
-    points collapse onto far fewer distinct graph nodes than there are
-    points) is visible in the result via distinct_snap_nodes /
-    avg_points_per_snap_node / indoor_snap_degenerate, not hidden
+  - entrance_augmentation.py's fix (see findings.md, 2026-08-09) actually
+    resolves the "indoor snap degenerate" gap for USS specifically: before
+    that fix, USS's interior had almost no mapped walking nodes, so grid
+    points collapsed onto far fewer distinct graph nodes than there are
+    points (17 distinct nodes for 64 points). After adding synthetic
+    entrance nodes around USS's OSM footprint, the same grid resolves to
+    57 distinct nodes and indoor_snap_degenerate is False. This test
+    asserts that improvement, not the original flaw -- distinct_snap_nodes
+    / avg_points_per_snap_node / indoor_snap_degenerate are still reported
+    on every result either way, so a regression back to the old collapsed
+    behavior (e.g. if the augmented graph fails to load) would fail loudly
+    here rather than passing silently.
   - an unmatched building_name returns None (caller 404s) rather than
     crashing or silently returning an empty result
 """
@@ -88,22 +95,26 @@ def run():
     print(f"bottleneck: {result['bottleneck']}")
     print(f"tally (top 5): {result['tally'][:5]}")
 
-    # Concentration check, not "collapses to one node" -- measured directly
-    # (see distance_ranking.py docstring update): only 2 of 657 Sentosa
-    # graph nodes fall inside USS's own AED bbox, so a 64-point grid over
-    # its footprint should map onto meaningfully fewer than 64 distinct
-    # nodes. Threshold matches indoor_snap_degenerate's own definition
-    # (< half as many distinct nodes as points) so this asserts the flag
-    # fires for the brief's own example attraction, not a specific count
-    # that could drift if the OSM extract is refreshed.
-    if result["distinct_snap_nodes"] >= result["n_points"] / 2:
+    # Post-entrance_augmentation.py expectation (findings.md, 2026-08-09):
+    # USS's footprint now has synthetic entrance nodes around its
+    # perimeter, so the 64-point grid should spread across most of them
+    # instead of collapsing -- measured at 57/64 distinct nodes. Threshold
+    # matches indoor_snap_degenerate's own definition (>= half as many
+    # distinct nodes as points) so this asserts the fix actually holds for
+    # the brief's own example attraction, not a specific count that could
+    # drift if the OSM extract is refreshed.
+    if result["distinct_snap_nodes"] < result["n_points"] / 2:
         failures.append(
-            f"expected USS's grid to concentrate onto fewer than half as many distinct "
-            f"nodes as points (known OSM indoor-coverage gap), got "
-            f"{result['distinct_snap_nodes']}/{result['n_points']}"
+            f"expected entrance augmentation to spread USS's grid onto at least half as "
+            f"many distinct nodes as points, got only "
+            f"{result['distinct_snap_nodes']}/{result['n_points']} -- possible regression "
+            f"back to the pre-augmentation indoor-coverage gap"
         )
-    if not result["indoor_snap_degenerate"]:
-        failures.append("indoor_snap_degenerate should be True for USS given the known coverage gap")
+    if result["indoor_snap_degenerate"]:
+        failures.append(
+            "indoor_snap_degenerate should be False for USS now that entrance_augmentation.py "
+            "has added synthetic entrance nodes around its footprint"
+        )
 
     print()
     print("-" * 90)

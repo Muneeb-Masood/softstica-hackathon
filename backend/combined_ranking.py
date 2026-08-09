@@ -72,7 +72,8 @@ rank_combined_timeline take a `mobility_profile` param ("walk" default,
 or "wheelchair"), passed straight through to
 distance_ranking.rank_by_walking_time -- see that module's docstring for
 the OSM-tag-derived route-quality flags (uses_stairs,
-crosses_unmarked_road, uses_permissive_access, mobility_note). "walk"
+crosses_unmarked_road, uses_permissive_access, uses_synthetic_entrance,
+mobility_note). "walk"
 still walks stairs (slower, flagged); "wheelchair" excludes stairs edges
 from pathfinding entirely, so an AED reachable only via stairs moves from
 `ranked` to `excluded` with reason="unreachable" and a mobility_note
@@ -124,6 +125,7 @@ class RankedAed(TypedDict):
     uses_stairs: bool
     crosses_unmarked_road: bool
     uses_permissive_access: bool
+    uses_synthetic_entrance: bool
 
 
 class ExcludedAed(TypedDict):
@@ -284,6 +286,7 @@ def _combine_for_datetime(
             uses_stairs=bool(w["uses_stairs"]),
             crosses_unmarked_road=bool(w["crosses_unmarked_road"]),
             uses_permissive_access=bool(w["uses_permissive_access"]),
+            uses_synthetic_entrance=bool(w["uses_synthetic_entrance"]),
         ))
 
     ranked.sort(key=lambda r: -r["final_score"])

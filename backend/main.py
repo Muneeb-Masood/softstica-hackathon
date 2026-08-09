@@ -7,7 +7,9 @@ parses request params, calls combined_ranking / explanation / distance_ranking,
 and shapes the results into JSON responses.
 
 Startup: the walking graph (osmnx MultiDiGraph, loaded from the cached
-sentosa_walk_graph.graphml) and the 66 Sentosa AED records are loaded once
+sentosa_walk_graph_augmented.graphml -- the base OSM walk network plus
+entrance_augmentation.py's synthetic building-entrance nodes) and the 66
+Sentosa AED records are loaded once
 in the FastAPI startup event via distance_ranking.load_walk_graph() /
 load_aeds(), which populate module-level caches in distance_ranking.py.
 Every request reuses those cached objects rather than reloading from disk.
@@ -84,9 +86,10 @@ def _mobility_warning(item: dict) -> Optional[str]:
     Deterministic, always-shown route-quality warning -- NOT dependent on
     the Gemini explanation call, so it can never be missed or paraphrased
     away. Built directly from distance_ranking's OSM-tag-derived flags
-    (uses_stairs, crosses_unmarked_road, uses_permissive_access; see that
-    module's docstring). Every AED whose route has one of these flags set
-    must surface this note wherever it's shown to a user.
+    (uses_stairs, crosses_unmarked_road, uses_permissive_access,
+    uses_synthetic_entrance; see that module's docstring). Every AED whose
+    route has one of these flags set must surface this note wherever it's
+    shown to a user.
     """
     notes = []
     if item.get("uses_stairs"):
@@ -104,6 +107,12 @@ def _mobility_warning(item: dict) -> Optional[str]:
         notes.append(
             "This route relies on a path tagged as permissive access "
             "(tolerated, not a guaranteed public right-of-way), not a public street."
+        )
+    if item.get("uses_synthetic_entrance"):
+        notes.append(
+            "The final stretch of this route uses an estimated entrance point "
+            "around the building's outline, not a surveyed doorway -- the "
+            "real entrance may be a short walk from where this route ends."
         )
     return " ".join(notes) if notes else None
 

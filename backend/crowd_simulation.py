@@ -19,19 +19,29 @@ signage/maintenance), not for pinpointing real crowd density.
 KNOWN LIMITATION this simulation surfaces empirically, not just in a
 docstring (see distance_ranking.py's indoor/private-venue-interior note):
 OSM's pedestrian network only covers publicly mapped streets, so lat/lon
-points inside a large attraction interior (measured for Universal Studios
-Singapore: 64 grid points collapse onto 17 distinct nearest-graph-nodes,
-not 64) snap to whichever nearby perimeter street node happens to be
-closest, not a real internal path. That is meaningfully fewer distinct
-nodes than the number of simulated points, so nearby points can share an
-identical walking-time profile to every AED even though they are
-physically apart inside the building -- not because the AED they agree on
-is a true walking bottleneck for that whole area, but because the walking
-graph cannot see indoor structure. `distinct_snap_nodes` and
-`avg_points_per_snap_node` in the result report this directly, and
+points inside a large attraction interior snap to whichever nearby
+perimeter street node happens to be closest, not a real internal path.
+When that collapses many simulated points onto few distinct nodes, nearby
+points can share an identical walking-time profile to every AED even
+though they are physically apart inside the building -- not because the
+AED they agree on is a true walking bottleneck for that whole area, but
+because the walking graph cannot see indoor structure. `distinct_snap_nodes`
+and `avg_points_per_snap_node` in the result report this directly, and
 `indoor_snap_degenerate` flags when the grid has fewer than half as many
 distinct snap nodes as simulated points, so this is shown to the user
 rather than silently presented as a precise finding.
+
+MITIGATED for buildings with a mapped OSM footprint near an AED, via
+entrance_augmentation.py (see distance_ranking.py's "MITIGATION" docstring
+section): before that fix, a 64-point grid over Universal Studios
+Singapore collapsed onto 17 distinct nearest-graph-nodes; after adding
+synthetic entrance points around its footprint, the same grid resolves to
+58 distinct nodes and `indoor_snap_degenerate` is False for it. The
+limitation described above still applies as stated for any building with
+no mapped footprint, or with no AED nearby (entrance augmentation is only
+applied where there is a ranking reason to) -- this is an improvement to
+the specific coverage gap, not a claim that indoor structure is now fully
+known.
 """
 
 from datetime import datetime

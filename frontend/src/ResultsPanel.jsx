@@ -90,7 +90,8 @@ function ExplanationBlock({ state, preloadedExplanation }) {
 
 // Deterministic, always-shown (never gated behind "Why this rank?") -- the
 // backend computes this straight from OSM-tag-derived route facts
-// (uses_stairs, crosses_unmarked_road, uses_permissive_access), not from
+// (uses_stairs, crosses_unmarked_road, uses_permissive_access,
+// uses_synthetic_entrance), not from
 // Gemini, precisely so a stairs warning can never be missed or paraphrased
 // away. See backend/main.py _mobility_warning.
 function MobilityWarning({ text }) {
@@ -118,6 +119,7 @@ function RankedCard({ rank, aed, index, explanations, note, query, detailState, 
         {aed.uses_stairs && <span className="route-flag route-flag-stairs">Includes stairs</span>}
         {aed.crosses_unmarked_road && <span className="route-flag route-flag-road">Unmarked road crossing</span>}
         {aed.uses_permissive_access && <span className="route-flag route-flag-permissive">Permissive-access path</span>}
+        {aed.uses_synthetic_entrance && <span className="route-flag route-flag-entrance">Estimated entrance point</span>}
       </div>
       <MobilityWarning text={aed.mobility_warning} />
       <TrustReasons badge={aed.trust_badge} reasons={aed.trust_badge_reasons} />
