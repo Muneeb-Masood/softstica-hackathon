@@ -1,7 +1,7 @@
 INFO:     Will watch for changes in these directories: ['D:\\softstica_hackathon\\backend']
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process [15284] using StatReload
-D:\softstica_hackathon\backend\chat_qa.py:34: FutureWarning: 
+INFO:     Started reloader process [20456] using StatReload
+D:\softstica_hackathon\backend\chat_qa.py:47: FutureWarning: 
 
 All support for the `google.generativeai` package has ended. It will no longer be receiving 
 updates or bug fixes. Please switch to the `google.genai` package as soon as possible.
@@ -10,43 +10,28 @@ See README for more details:
 https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/README.md
 
   import google.generativeai as genai
-INFO:     Started server process [18240]
+INFO:     Started server process [24332]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     127.0.0.1:50107 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50110 - "POST /chat HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50570 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50571 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50571 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50571 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50571 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50570 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50570 - "OPTIONS /rank/timeline HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50570 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50570 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50609 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50609 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50624 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50638 - "POST /chat HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50697 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50697 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50698 - "OPTIONS /rank HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50698 - "POST /rank HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50697 - "POST /rank/timeline HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50726 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50726 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50735 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50735 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50736 - "POST /rank HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50735 - "POST /rank/timeline HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50761 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50761 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50792 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50792 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50793 - "POST /rank HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50792 - "POST /rank/timeline HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50803 - "OPTIONS /chat HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50803 - "POST /chat HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50804 - "POST /chat HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50812 - "POST /chat HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50813 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52236 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52250 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52240 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52250 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52266 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52268 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52272 - "GET /aed/098008-002/detail?lat=1.2546604815811069&lon=103.81532786395223&date=2026-08-09&time=20%3A00&mobility=walk HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52803 - "OPTIONS /crowd-simulation HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52803 - "POST /crowd-simulation HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52804 - "POST /crowd-simulation HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52804 - "POST /crowd-simulation HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:52816 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52816 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52816 - "OPTIONS /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52816 - "OPTIONS /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52816 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52833 - "POST /crowd-simulation HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52817 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52836 - "POST /crowd-simulation HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52906 - "POST /crowd-simulation HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52912 - "POST /crowd-simulation HTTP/1.1" 200 OK

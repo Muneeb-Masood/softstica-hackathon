@@ -157,6 +157,11 @@ function ExcludedCard({ aed, query, detailState, onToggle }) {
 
 export default function ResultsPanel({ ranking, loading, error }) {
   const [detailState, setDetailState] = useState({});
+  // Collapsed by default so a long ranked/excluded list doesn't force
+  // scrolling past every card to reach the Time Slider / Crowd Simulation /
+  // Registry Quality sections below in the sidebar -- opt-in expand instead.
+  const [rankedOpen, setRankedOpen] = useState(false);
+  const [excludedOpen, setExcludedOpen] = useState(false);
 
   if (loading) return <div className="results-status">Ranking AEDs…</div>;
   if (error) return <div className="results-status results-error">{error}</div>;
@@ -211,41 +216,65 @@ export default function ResultsPanel({ ranking, loading, error }) {
 
   return (
     <div className="results-subpanel">
-      <h2 className="subheading">Ranked AEDs ({ranked.length})</h2>
-      {ranked.length === 0 && (
-        <div className="results-status">
-          No AEDs are open and reachable for this location/date/time. See the excluded list below.
+      <button
+        type="button"
+        className="results-collapse-toggle"
+        onClick={() => setRankedOpen((o) => !o)}
+        aria-expanded={rankedOpen}
+      >
+        <span className="subheading">Ranked AEDs ({ranked.length})</span>
+        <span className="app-section-chevron">{rankedOpen ? "▾" : "▸"}</span>
+      </button>
+      {rankedOpen && (
+        <div className="results-list">
+          {ranked.length === 0 && (
+            <div className="results-status">
+              No AEDs are open and reachable for this location/date/time. See the excluded list below.
+            </div>
+          )}
+          {ranked.map((aed, i) => (
+            <RankedCard
+              key={aed.aed_id}
+              rank={i + 1}
+              index={i}
+              aed={aed}
+              explanations={explanations}
+              note={explanations?.note}
+              query={query}
+              detailState={detailState}
+              onToggle={handleToggle}
+            />
+          ))}
         </div>
       )}
-      {ranked.map((aed, i) => (
-        <RankedCard
-          key={aed.aed_id}
-          rank={i + 1}
-          index={i}
-          aed={aed}
-          explanations={explanations}
-          note={explanations?.note}
-          query={query}
-          detailState={detailState}
-          onToggle={handleToggle}
-        />
-      ))}
 
-      <h2 className="subheading excluded-heading">
-        Excluded ({excluded.length}) — closed or unreachable, not silently dropped
-      </h2>
-      {excluded.length === 0 ? (
-        <div className="results-status">None excluded for this query.</div>
-      ) : (
-        excluded.map((aed) => (
-          <ExcludedCard
-            key={aed.aed_id}
-            aed={aed}
-            query={query}
-            detailState={detailState}
-            onToggle={handleToggle}
-          />
-        ))
+      <button
+        type="button"
+        className="results-collapse-toggle excluded-heading"
+        onClick={() => setExcludedOpen((o) => !o)}
+        aria-expanded={excludedOpen}
+      >
+        <span className="subheading">
+          Excluded ({excluded.length}) — closed or unreachable, not silently dropped
+        </span>
+        <span className="app-section-chevron">{excludedOpen ? "▾" : "▸"}</span>
+      </button>
+      {excludedOpen && (
+        <div className="results-list">
+          {excluded.length === 0 ? (
+            <div className="results-status">None excluded for this query.</div>
+          ) : (
+            excluded.map((aed) => (
+              <ExcludedCard
+                key={aed.aed_id}
+                aed={aed}
+                query={query}
+                detailState={detailState}
+                onToggle={handleToggle}
+              />
+            ))
+          )}
+        </div>
       )}
     </div>
   );

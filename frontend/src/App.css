@@ -320,6 +320,30 @@
   padding-top: 12px;
 }
 
+.results-collapse-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0 0 10px;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.results-collapse-toggle .subheading {
+  margin: 0;
+}
+
+.results-list {
+  max-height: 50vh;
+  overflow-y: auto;
+  margin-bottom: 14px;
+}
+
 .excluded-heading {
   margin-top: 18px !important;
 }

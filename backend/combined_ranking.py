@@ -135,6 +135,25 @@ class ExcludedAed(TypedDict):
     mobility_note: Optional[str]
 
 
+def display_name(props: dict) -> Optional[str]:
+    """
+    BUILDING_NAME is null for some Sentosa AEDs (e.g. 098008-003, a first-aid
+    room at 31 Beach View with no named building) -- falling straight
+    through to the raw AED_ID in that case reads as a bug in the UI. Prefer
+    the street address (HOUSE_NUMBER + ROAD_NAME) as a human-readable
+    fallback; only the caller falls back further to AED_ID if even that is
+    missing.
+    """
+    name = props.get("BUILDING_NAME")
+    if name:
+        return name
+    road = props.get("ROAD_NAME")
+    if road:
+        house = props.get("HOUSE_NUMBER")
+        return f"{house} {road}" if house else road
+    return None
+
+
 def rank_combined(
     test_lat: float,
     test_lon: float,
@@ -210,7 +229,7 @@ def _combine_for_datetime(
         if not w["reachable"]:
             excluded.append(ExcludedAed(
                 aed_id=aed_id,
-                building_name=props.get("BUILDING_NAME"),
+                building_name=display_name(props),
                 reason="unreachable",
                 hours_status=None,
                 walking_time_s=None,
@@ -223,7 +242,7 @@ def _combine_for_datetime(
         if status == "closed":
             excluded.append(ExcludedAed(
                 aed_id=aed_id,
-                building_name=props.get("BUILDING_NAME"),
+                building_name=display_name(props),
                 reason="closed",
                 hours_status=status,
                 walking_time_s=w["walking_time_s"],
@@ -248,7 +267,7 @@ def _combine_for_datetime(
 
         ranked.append(RankedAed(
             aed_id=aed_id,
-            building_name=props.get("BUILDING_NAME"),
+            building_name=display_name(props),
             latitude=props["LATITUDE"],
             longitude=props["LONGITUDE"],
             walking_time_s=w["walking_time_s"],

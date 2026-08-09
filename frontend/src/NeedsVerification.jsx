@@ -116,7 +116,7 @@ export default function NeedsVerification() {
       {data && (
         <>
           <div className="needs-verification-summary">
-            <strong>{data.needs_verification_count}</strong> of {data.total_aeds} Sentosa AEDs
+            <strong>{data.needs_verification_count}</strong> of {data.total_aeds} AEDs
             flagged "Needs Verification" (
             {data.badge_counts.High} High · {data.badge_counts.Medium} Medium ·{" "}
             {data.badge_counts["Needs Verification"]} Needs Verification)

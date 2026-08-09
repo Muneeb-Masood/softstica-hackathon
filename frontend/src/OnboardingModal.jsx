@@ -10,9 +10,9 @@ export default function OnboardingModal({ onClose }) {
       >
         <h2 id="onboarding-title">Welcome — how this tool works</h2>
         <p>
-          This is a <strong>simulation and preparedness tool</strong> for AED discovery on
-          Sentosa. It is <strong>not</strong> a live emergency app and does not reflect
-          real-time AED availability or working condition.
+          This is a <strong>simulation and preparedness tool</strong> for AED discovery. It is{" "}
+          <strong>not</strong> a live emergency app and does not reflect real-time AED
+          availability or working condition.
         </p>
         <p>
           <strong>To use it:</strong> click a location on the map to set a test starting

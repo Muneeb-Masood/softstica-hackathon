@@ -8,6 +8,12 @@ import { sendChatMessage } from "./api";
 // trust_score.py. See CLAUDE.md Section 7: this stays a simulation
 // explainer, never live guidance.
 //
+// Also forwards `timeline` (the already-fetched /rank/timeline `hours`
+// array behind the Time Slider) when App.jsx has it, so questions like
+// "why doesn't this AED show closed?" can be answered from the same
+// precomputed day-long data the slider itself uses -- see chat_qa.py's
+// _build_timeline_block. Nothing new is fetched here for this.
+//
 // Rendered as a floating widget docked to the right edge of the screen
 // (not buried at the bottom of the scrollable results list) so it stays
 // reachable regardless of how long the ranked/excluded list is. The
@@ -15,7 +21,7 @@ import { sendChatMessage } from "./api";
 // there is nothing to ask about until "Find AEDs" has actually run.
 const MAX_MESSAGES = 20;
 
-export default function ChatPanel({ context, sessionId }) {
+export default function ChatPanel({ context, timeline, sessionId }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -44,6 +50,7 @@ export default function ChatPanel({ context, sessionId }) {
           ranked: context.ranked,
           excluded: context.excluded,
           explanations: context.explanations,
+          timeline: timeline?.hours ?? null,
         },
         history,
       });
@@ -92,8 +99,9 @@ export default function ChatPanel({ context, sessionId }) {
         </div>
       </div>
       <p className="chat-panel-note">
-        Answers are grounded only in the ranking on screen — not live traffic, live
-        availability, or anything else. This does not re-rank or recalculate.
+        Answers are grounded only in the ranking on screen and the Time Slider's
+        precomputed hours for today — not live traffic, live availability, or
+        anything else. This does not re-rank or recalculate.
       </p>
 
       {messages.length > 0 && (
@@ -125,7 +133,7 @@ export default function ChatPanel({ context, sessionId }) {
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder='e.g. "why did the top pick win?"'
+          placeholder="e.g. why doesn't this one show closed today?"
           disabled={sending || limitReached}
           maxLength={500}
           autoFocus

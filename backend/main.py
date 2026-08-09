@@ -22,7 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from chat_qa import MAX_MESSAGES_PER_SESSION, RateLimitError, answer_question
-from combined_ranking import rank_combined, rank_combined_timeline
+from combined_ranking import display_name, rank_combined, rank_combined_timeline
 from crowd_simulation import run_crowd_simulation
 from distance_ranking import load_aeds, load_walk_graph
 from explanation import (
@@ -126,7 +126,7 @@ def get_aeds():
         trust = score_aed_properties(props)
         result.append({
             "aed_id": props["AED_ID"],
-            "building_name": props.get("BUILDING_NAME"),
+            "building_name": display_name(props),
             "latitude": props["LATITUDE"],
             "longitude": props["LONGITUDE"],
             "floor_level": props.get("AED_LOCATION_FLOOR_LEVEL"),
@@ -163,7 +163,7 @@ def get_needs_verification():
     def _to_item(props: dict, trust) -> dict:
         return {
             "aed_id": props["AED_ID"],
-            "building_name": props.get("BUILDING_NAME"),
+            "building_name": display_name(props),
             "latitude": props["LATITUDE"],
             "longitude": props["LONGITUDE"],
             "floor_level": props.get("AED_LOCATION_FLOOR_LEVEL"),

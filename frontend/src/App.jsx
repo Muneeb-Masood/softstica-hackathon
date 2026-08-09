@@ -254,7 +254,7 @@ function App() {
       </div>
 
       {ranking && ranking.ranked && ranking.ranked.length > 0 && (
-        <ChatPanel context={ranking} sessionId={chatSessionId} />
+        <ChatPanel context={ranking} timeline={timeline} sessionId={chatSessionId} />
       )}
     </div>
   );
