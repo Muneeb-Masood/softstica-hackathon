@@ -99,13 +99,20 @@ function MobilityWarning({ text }) {
   return <p className="mobility-warning">{text}</p>;
 }
 
-function RankedCard({ rank, aed, index, explanations, note, query, detailState, onToggle }) {
+function RankedCard({ rank, aed, index, explanations, note, query, detailState, onToggle, selected, onSelect }) {
   const preloadedExplanation = preloadedExplanationFor(aed, index, explanations);
   const state = detailState[aed.aed_id];
 
   return (
-    <div className="result-card" style={{ borderLeft: `4px solid ${badgeColor(aed.trust_badge)}` }}>
-      <div className="result-card-head">
+    <div
+      className={`result-card${selected ? " result-card-selected" : ""}`}
+      style={{ borderLeft: `4px solid ${badgeColor(aed.trust_badge)}` }}
+    >
+      <div
+        className="result-card-head result-card-head-clickable"
+        onClick={onSelect}
+        title="Show this AED's walking route on the map"
+      >
         <span className="rank-number">#{rank}</span>
         <span className="result-name">{aed.building_name || aed.aed_id}</span>
         <TrustPill badge={aed.trust_badge} />
@@ -157,7 +164,7 @@ function ExcludedCard({ aed, query, detailState, onToggle }) {
   );
 }
 
-export default function ResultsPanel({ ranking, loading, error }) {
+export default function ResultsPanel({ ranking, loading, error, selectedAedId, onSelectAed }) {
   const [detailState, setDetailState] = useState({});
   // Collapsed by default so a long ranked/excluded list doesn't force
   // scrolling past every card to reach the Time Slider / Crowd Simulation /
@@ -197,6 +204,7 @@ export default function ResultsPanel({ ranking, loading, error }) {
         date: q.date,
         time: q.time,
         mobility: q.mobility,
+        paceMPerS: q.pace_m_per_s,
       });
       setDetailState((prev) => ({
         ...prev,
@@ -229,6 +237,9 @@ export default function ResultsPanel({ ranking, loading, error }) {
       </button>
       {rankedOpen && (
         <div className="results-list">
+          {onSelectAed != null && ranked.length > 0 && (
+            <p className="results-hint">Click any AED below to draw its walking route on the map.</p>
+          )}
           {ranked.length === 0 && (
             <div className="results-status">
               No AEDs are open and reachable for this location/date/time. See the excluded list below.
@@ -245,6 +256,8 @@ export default function ResultsPanel({ ranking, loading, error }) {
               query={query}
               detailState={detailState}
               onToggle={handleToggle}
+              selected={onSelectAed != null && aed.aed_id === selectedAedId}
+              onSelect={() => onSelectAed?.(aed.aed_id)}
             />
           ))}
         </div>

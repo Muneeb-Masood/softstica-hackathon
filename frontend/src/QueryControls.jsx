@@ -1,11 +1,17 @@
+const PACE_MIN = 0.3;
+const PACE_MAX = 2.5;
+const PACE_STEP = 0.01;
+
 export default function QueryControls({
   testPoint,
   date,
   time,
   mobility,
+  paceMPerS,
   onDateChange,
   onTimeChange,
   onMobilityChange,
+  onPaceChange,
   onSubmit,
   submitting,
 }) {
@@ -71,6 +77,29 @@ export default function QueryControls({
           accessibility survey.
         </p>
       )}
+
+      <div className="control-row">
+        <label htmlFor="pace-slider">Walking pace</label>
+        <div className="pace-slider-row">
+          <input
+            id="pace-slider"
+            type="range"
+            min={PACE_MIN}
+            max={PACE_MAX}
+            step={PACE_STEP}
+            value={paceMPerS}
+            onChange={(e) => onPaceChange(parseFloat(e.target.value))}
+          />
+          <span className="pace-value">{paceMPerS.toFixed(2)} m/s</span>
+        </div>
+      </div>
+      <p className="mobility-hint">
+        Rescales walking time only (route choice doesn't change). 1.34 m/s
+        (~4.8 km/h) is the default &mdash; the same range mainstream
+        pedestrian-routing engines default to. Not a personal or measured
+        pace &mdash; a documented planning-level assumption you can adjust,
+        same honesty standard as everywhere else this tool shows a number.
+      </p>
 
       <button
         id="rank-button"

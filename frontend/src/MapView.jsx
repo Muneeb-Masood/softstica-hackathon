@@ -1,4 +1,4 @@
-import { CircleMarker, MapContainer, Marker, Popup, TileLayer, useMapEvents } from "react-leaflet";
+import { CircleMarker, MapContainer, Marker, Polyline, Popup, TileLayer, useMapEvents } from "react-leaflet";
 import { badgeColor } from "./trustBadge";
 
 const SENTOSA_CENTER = [1.2525, 103.82];
@@ -12,7 +12,7 @@ function ClickCatcher({ onPick }) {
   return null;
 }
 
-export default function MapView({ aeds, testPoint, onPickLocation, crowdResult }) {
+export default function MapView({ aeds, testPoint, onPickLocation, crowdResult, route }) {
   const bottleneckId = crowdResult?.bottleneck?.aed_id ?? null;
   const bottleneckAed = bottleneckId
     ? aeds.find((a) => a.aed_id === bottleneckId)
@@ -63,6 +63,29 @@ export default function MapView({ aeds, testPoint, onPickLocation, crowdResult }
         <Marker position={[testPoint.lat, testPoint.lon]}>
           <Popup>Test location</Popup>
         </Marker>
+      )}
+
+      {route?.straight_line && (
+        <Polyline
+          positions={route.straight_line}
+          pathOptions={{ color: "#9aa0a6", weight: 3, dashArray: "6 8", opacity: 0.9 }}
+        >
+          <Popup>
+            Straight-line baseline (required-baseline lookup, ignores whether this line is
+            actually walkable): {Math.round(route.straight_line_distance_m)}m
+          </Popup>
+        </Polyline>
+      )}
+      {route?.reachable && route.walking_route && (
+        <Polyline
+          positions={route.walking_route}
+          pathOptions={{ color: "#1a73e8", weight: 4, opacity: 0.9 }}
+        >
+          <Popup>
+            Simulated walking route (not live turn-by-turn navigation): {Math.round(route.walking_distance_m)}m,
+            ~{Math.round(route.walking_time_s / 60)} min
+          </Popup>
+        </Polyline>
       )}
 
       {crowdResult?.points.map((p, i) => (

@@ -21,12 +21,19 @@ from typing import List, Literal, Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from chat_qa import MAX_MESSAGES_PER_SESSION, RateLimitError, answer_question
 from combined_ranking import display_name, rank_combined, rank_combined_timeline
 from crowd_simulation import run_crowd_simulation
-from distance_ranking import load_aeds, load_walk_graph
+from distance_ranking import (
+    MAX_PACE_M_PER_S,
+    MIN_PACE_M_PER_S,
+    WALKING_SPEED_M_PER_S,
+    get_route_geometry,
+    load_aeds,
+    load_walk_graph,
+)
 from explanation import (
     generate_aed_detail,
     generate_explanation,
@@ -69,6 +76,7 @@ class RankRequest(BaseModel):
     date: str  # YYYY-MM-DD
     time: str  # HH:MM
     mobility: Literal["walk", "wheelchair"] = "walk"
+    pace_m_per_s: float = Field(default=WALKING_SPEED_M_PER_S, ge=MIN_PACE_M_PER_S, le=MAX_PACE_M_PER_S)
 
 
 def _parse_test_dt(date_str: str, time_str: str) -> datetime:
@@ -237,7 +245,9 @@ def aed_trust_explanation(aed_id: str):
 def rank(req: RankRequest):
     test_dt = _parse_test_dt(req.date, req.time)
 
-    ranked, excluded = rank_combined(req.lat, req.lon, test_dt, mobility_profile=req.mobility)
+    ranked, excluded = rank_combined(
+        req.lat, req.lon, test_dt, mobility_profile=req.mobility, pace_m_per_s=req.pace_m_per_s
+    )
     for item in ranked:
         item["mobility_warning"] = _mobility_warning(item)
 
@@ -257,6 +267,7 @@ def rank(req: RankRequest):
             "date": req.date,
             "time": req.time,
             "mobility": req.mobility,
+            "pace_m_per_s": req.pace_m_per_s,
         },
         "ranked": ranked,
         "excluded": excluded,
@@ -321,6 +332,7 @@ def aed_detail(
     date: str = Query(...),
     time: str = Query(...),
     mobility: Literal["walk", "wheelchair"] = Query("walk"),
+    pace_m_per_s: float = Query(WALKING_SPEED_M_PER_S, ge=MIN_PACE_M_PER_S, le=MAX_PACE_M_PER_S),
 ):
     """
     Direct, honest lookup for ONE specific AED at a test location/date/time,
@@ -336,7 +348,7 @@ def aed_detail(
     spot it hasn't earned.
     """
     test_dt = _parse_test_dt(date, time)
-    ranked, excluded = rank_combined(lat, lon, test_dt, mobility_profile=mobility)
+    ranked, excluded = rank_combined(lat, lon, test_dt, mobility_profile=mobility, pace_m_per_s=pace_m_per_s)
     detail = generate_aed_detail(lat, lon, test_dt, ranked, excluded, aed_id)
     if detail.get("sub_scores"):
         detail["mobility_warning"] = _mobility_warning(detail["sub_scores"])
@@ -345,8 +357,36 @@ def aed_detail(
         raise HTTPException(status_code=404, detail=f"AED_ID {aed_id!r} not found in the Sentosa dataset.")
 
     return {
-        "query": {"lat": lat, "lon": lon, "date": date, "time": time, "mobility": mobility},
+        "query": {"lat": lat, "lon": lon, "date": date, "time": time, "mobility": mobility, "pace_m_per_s": pace_m_per_s},
         "detail": detail,
+        "disclaimer": DISCLAIMER,
+    }
+
+
+@app.get("/route")
+def route(
+    aed_id: str = Query(...),
+    lat: float = Query(...),
+    lon: float = Query(...),
+    mobility: Literal["walk", "wheelchair"] = Query("walk"),
+    pace_m_per_s: float = Query(WALKING_SPEED_M_PER_S, ge=MIN_PACE_M_PER_S, le=MAX_PACE_M_PER_S),
+):
+    """
+    Map-drawing support: the real walking-network route from a test point to
+    one AED, plus the straight-line baseline between the same two points, so
+    the frontend can draw both on the map for a direct visual "baseline vs.
+    actual walking route" comparison -- not scored or ranked here, this is
+    the same route rank_combined already scored, just returned as drawable
+    coordinates. Never a live turn-by-turn route -- see DISCLAIMER.
+    """
+    result = get_route_geometry(lat, lon, aed_id, mobility_profile=mobility, pace_m_per_s=pace_m_per_s)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"AED_ID {aed_id!r} not found in the Sentosa dataset.")
+
+    result["mobility_warning"] = _mobility_warning(result)
+    return {
+        "query": {"lat": lat, "lon": lon, "aed_id": aed_id, "mobility": mobility, "pace_m_per_s": pace_m_per_s},
+        "route": result,
         "disclaimer": DISCLAIMER,
     }
 
@@ -356,6 +396,7 @@ class TimelineRequest(BaseModel):
     lon: float
     date: str  # YYYY-MM-DD
     mobility: Literal["walk", "wheelchair"] = "walk"
+    pace_m_per_s: float = Field(default=WALKING_SPEED_M_PER_S, ge=MIN_PACE_M_PER_S, le=MAX_PACE_M_PER_S)
 
 
 def _parse_test_date(date_str: str):
@@ -380,7 +421,9 @@ def rank_timeline(req: TimelineRequest):
     """
     test_date = _parse_test_date(req.date)
 
-    hourly = rank_combined_timeline(req.lat, req.lon, test_date, mobility_profile=req.mobility)
+    hourly = rank_combined_timeline(
+        req.lat, req.lon, test_date, mobility_profile=req.mobility, pace_m_per_s=req.pace_m_per_s
+    )
     explanations_by_hour, stats = generate_timeline_explanations(req.lat, req.lon, hourly)
 
     hours_payload = []
@@ -401,6 +444,8 @@ def rank_timeline(req: TimelineRequest):
             "lat": req.lat,
             "lon": req.lon,
             "date": req.date,
+            "mobility": req.mobility,
+            "pace_m_per_s": req.pace_m_per_s,
         },
         "hours": hours_payload,
         "stats": stats,

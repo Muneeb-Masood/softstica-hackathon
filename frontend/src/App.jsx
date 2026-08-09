@@ -9,7 +9,7 @@ import NeedsVerification from "./NeedsVerification";
 import OnboardingModal from "./OnboardingModal";
 import Section from "./Section";
 import ChatPanel from "./ChatPanel";
-import { fetchAeds, fetchCrowdSimulation, fetchRanking, fetchTimeline } from "./api";
+import { fetchAeds, fetchCrowdSimulation, fetchRanking, fetchRoute, fetchTimeline } from "./api";
 import { BADGE_COLORS } from "./trustBadge";
 import "./App.css";
 
@@ -33,6 +33,7 @@ function App() {
   const [date, setDate] = useState(todayStr());
   const [time, setTime] = useState(nowTimeStr());
   const [mobility, setMobility] = useState("walk");
+  const [paceMPerS, setPaceMPerS] = useState(1.34);
   const [ranking, setRanking] = useState(null);
   const [rankLoading, setRankLoading] = useState(false);
   const [rankError, setRankError] = useState(null);
@@ -45,6 +46,13 @@ function App() {
   const [crowdResult, setCrowdResult] = useState(null);
   const [crowdLoading, setCrowdLoading] = useState(false);
   const [crowdError, setCrowdError] = useState(null);
+
+  const [routeData, setRouteData] = useState(null);
+  // Which ranked AED's route is drawn on the map -- null means "defer to
+  // the #1 pick" (see activeAedId below). Reset to null whenever a new
+  // ranking arrives so a fresh query starts back on its own #1 pick
+  // instead of carrying over a selection from the previous query.
+  const [selectedAedId, setSelectedAedId] = useState(null);
 
   // One id per page load, used only to key the backend's per-session chat
   // message cap (chat_qa.py) -- not an auth token, not persisted.
@@ -73,7 +81,7 @@ function App() {
       setTimelineLoading(true);
       setTimelineError(null);
       try {
-        const data = await fetchTimeline({ lat: testPoint.lat, lon: testPoint.lon, date, mobility });
+        const data = await fetchTimeline({ lat: testPoint.lat, lon: testPoint.lon, date, mobility, paceMPerS });
         if (cancelled) return;
         setTimeline(data);
         setSliderHour(Number(time.slice(0, 2)));
@@ -88,13 +96,44 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [testPoint, date, time, mobility]);
+  }, [testPoint, date, time, mobility, paceMPerS]);
+
+  // A fresh /rank result starts back on its own #1 pick, not whatever card
+  // happened to be selected for the previous query.
+  useEffect(() => {
+    setSelectedAedId(null);
+  }, [ranking]);
+
+  const activeAedId = selectedAedId ?? ranking?.ranked?.[0]?.aed_id ?? null;
+
+  // Draws the currently-active AED's real walking route (plus the
+  // straight-line baseline) on the map -- the #1 pick by default, or
+  // whichever ranked card the user clicked (see selectedAedId). Tied to the
+  // main "Find AEDs" result only, not every time-slider drag, so dragging
+  // the slider doesn't fire a route request per tick.
+  useEffect(() => {
+    if (!testPoint || !activeAedId) {
+      setRouteData(null);
+      return;
+    }
+    let cancelled = false;
+    fetchRoute({ aedId: activeAedId, lat: testPoint.lat, lon: testPoint.lon, mobility, paceMPerS })
+      .then((data) => {
+        if (!cancelled) setRouteData(data.route);
+      })
+      .catch(() => {
+        if (!cancelled) setRouteData(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeAedId, testPoint, mobility, paceMPerS]);
 
   const sliderHourData = timeline?.hours.find((h) => h.hour === sliderHour) ?? null;
   const sliderRanking = sliderHourData && {
     ranked: sliderHourData.ranked,
     excluded: sliderHourData.excluded,
-    query: testPoint && { lat: testPoint.lat, lon: testPoint.lon, date, time: sliderHourData.time, mobility },
+    query: testPoint && { lat: testPoint.lat, lon: testPoint.lon, date, time: sliderHourData.time, mobility, pace_m_per_s: paceMPerS },
     explanations: sliderHourData.explanation && {
       top_explanation: sliderHourData.explanation.top_explanation,
       comparisons: sliderHourData.explanation.comparisons,
@@ -119,12 +158,21 @@ function App() {
     setRankError(null);
   };
 
+  const handlePaceChange = (value) => {
+    setPaceMPerS(value);
+    // Same reasoning as handleMobilityChange -- a stale ranking computed at
+    // the old pace shouldn't stay on screen labeled as if it reflects the
+    // newly selected one.
+    setRanking(null);
+    setRankError(null);
+  };
+
   const handleRank = async () => {
     if (!testPoint) return;
     setRankLoading(true);
     setRankError(null);
     try {
-      const result = await fetchRanking({ lat: testPoint.lat, lon: testPoint.lon, date, time, mobility });
+      const result = await fetchRanking({ lat: testPoint.lat, lon: testPoint.lon, date, time, mobility, paceMPerS });
       setRanking(result);
     } catch (err) {
       setRankError(err.message);
@@ -184,13 +232,21 @@ function App() {
               date={date}
               time={time}
               mobility={mobility}
+              paceMPerS={paceMPerS}
               onDateChange={setDate}
               onTimeChange={setTime}
               onMobilityChange={handleMobilityChange}
+              onPaceChange={handlePaceChange}
               onSubmit={handleRank}
               submitting={rankLoading}
             />
-            <ResultsPanel ranking={ranking} loading={rankLoading} error={rankError} />
+            <ResultsPanel
+              ranking={ranking}
+              loading={rankLoading}
+              error={rankError}
+              selectedAedId={activeAedId}
+              onSelectAed={setSelectedAedId}
+            />
           </Section>
 
           <Section
@@ -241,6 +297,7 @@ function App() {
             testPoint={testPoint}
             onPickLocation={handlePickLocation}
             crowdResult={crowdResult}
+            route={routeData}
           />
           <div className="legend">
             {Object.entries(BADGE_COLORS).map(([label, color]) => (
@@ -249,6 +306,18 @@ function App() {
                 {label}
               </div>
             ))}
+            {routeData && (
+              <>
+                <div className="legend-row">
+                  <span className="legend-line legend-line-route" />
+                  Simulated route to selected AED (not live navigation)
+                </div>
+                <div className="legend-row">
+                  <span className="legend-line legend-line-baseline" />
+                  Straight-line baseline (ignores walkability)
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

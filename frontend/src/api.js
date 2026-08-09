@@ -6,11 +6,11 @@ export async function fetchAeds() {
   return res.json();
 }
 
-export async function fetchRanking({ lat, lon, date, time, mobility = "walk" }) {
+export async function fetchRanking({ lat, lon, date, time, mobility = "walk", paceMPerS = 1.34 }) {
   const res = await fetch(`${API_BASE}/rank`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ lat, lon, date, time, mobility }),
+    body: JSON.stringify({ lat, lon, date, time, mobility, pace_m_per_s: paceMPerS }),
   });
   if (!res.ok) {
     const detail = await res.text();
@@ -19,11 +19,11 @@ export async function fetchRanking({ lat, lon, date, time, mobility = "walk" }) 
   return res.json();
 }
 
-export async function fetchTimeline({ lat, lon, date, mobility = "walk" }) {
+export async function fetchTimeline({ lat, lon, date, mobility = "walk", paceMPerS = 1.34 }) {
   const res = await fetch(`${API_BASE}/rank/timeline`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ lat, lon, date, mobility }),
+    body: JSON.stringify({ lat, lon, date, mobility, pace_m_per_s: paceMPerS }),
   });
   if (!res.ok) {
     const detail = await res.text();
@@ -47,8 +47,8 @@ export async function fetchTrustExplanation(aedId) {
   return res.json();
 }
 
-export async function fetchAedDetail({ aedId, lat, lon, date, time, mobility = "walk" }) {
-  const params = new URLSearchParams({ lat, lon, date, time, mobility });
+export async function fetchAedDetail({ aedId, lat, lon, date, time, mobility = "walk", paceMPerS = 1.34 }) {
+  const params = new URLSearchParams({ lat, lon, date, time, mobility, pace_m_per_s: paceMPerS });
   const res = await fetch(`${API_BASE}/aed/${encodeURIComponent(aedId)}/detail?${params}`);
   if (!res.ok) {
     const detail = await res.text();
@@ -68,6 +68,16 @@ export async function sendChatMessage({ sessionId, question, context, history = 
     const err = new Error(`POST /chat failed: ${res.status} ${detail}`);
     err.status = res.status;
     throw err;
+  }
+  return res.json();
+}
+
+export async function fetchRoute({ aedId, lat, lon, mobility = "walk", paceMPerS = 1.34 }) {
+  const params = new URLSearchParams({ aed_id: aedId, lat, lon, mobility, pace_m_per_s: paceMPerS });
+  const res = await fetch(`${API_BASE}/route?${params}`);
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`GET /route failed: ${res.status} ${detail}`);
   }
   return res.json();
 }

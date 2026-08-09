@@ -133,6 +133,43 @@ WALKING_SPEED_M_PER_S = 1.34
 # docstring).
 STAIRS_SPEED_M_PER_S = 0.5
 
+# User-adjustable pace (see main.py's `pace_m_per_s` request field, exposed
+# in the frontend as an m/s slider): bounds on the speed a user can select.
+# WALKING_SPEED_M_PER_S (1.34, "average") is the default/center point.
+# Bounds are sanity limits, not measured either -- below MIN_PACE_M_PER_S is
+# slower than a typical assisted/wheelchair-push pace, above
+# MAX_PACE_M_PER_S is a jog rather than a walk, so both ends stop being a
+# meaningful "walking" pace to rank against.
+MIN_PACE_M_PER_S = 0.3
+MAX_PACE_M_PER_S = 2.5
+
+
+def _pace_time_scale(pace_m_per_s: float) -> float:
+    """
+    Multiplier applied to a walking_time_s computed at WALKING_SPEED_M_PER_S
+    to get the equivalent time at a user-selected pace.
+
+    The walk graph's per-edge time_s (_annotate_graph) is baked in once at
+    WALKING_SPEED_M_PER_S / STAIRS_SPEED_M_PER_S -- re-annotating the whole
+    graph, or re-running Dijkstra, per pace change would be wasteful.
+    That's unnecessary under one simplifying assumption: a user's stairs
+    pace scales with their flat-ground pace by the same fixed ratio
+    STAIRS_SPEED_M_PER_S/WALKING_SPEED_M_PER_S (~0.373x) that the "average"
+    baseline uses. Under that assumption every edge's time_s -- flat or
+    stairs -- scales by the same factor, WALKING_SPEED_M_PER_S /
+    pace_m_per_s, regardless of how much of a given path is stairs, so a
+    single post-hoc multiply on the aggregated time is equivalent to
+    re-annotating and re-solving the graph at the new speed. It also means
+    pace never changes *which* path is shortest -- only how long that same
+    path is reported to take.
+    """
+    if not (MIN_PACE_M_PER_S <= pace_m_per_s <= MAX_PACE_M_PER_S):
+        raise ValueError(
+            f"pace_m_per_s must be between {MIN_PACE_M_PER_S} and {MAX_PACE_M_PER_S}, got {pace_m_per_s!r}"
+        )
+    return WALKING_SPEED_M_PER_S / pace_m_per_s
+
+
 # highway tags treated as vehicle-carrying roads for the crosses_unmarked_road
 # flag, chosen by inspecting this bbox's own maxspeed tags (see module
 # docstring) rather than assumed from OSM's general road hierarchy --
@@ -347,6 +384,7 @@ def rank_by_walking_time(
     aeds: Optional[List[dict]] = None,
     graph: Optional["ox.MultiDiGraph"] = None,
     mobility_profile: str = "walk",
+    pace_m_per_s: float = WALKING_SPEED_M_PER_S,
 ) -> List[AedWalkingResult]:
     """
     Rank all Sentosa AEDs by real walking-network time from a test point.
@@ -367,9 +405,18 @@ def rank_by_walking_time(
     mobility_note explaining that a walking (non-wheelchair) route exists
     but requires stairs, so "no route at all" isn't confused with "no
     route without stairs".
+
+    pace_m_per_s: user-selected walking speed in meters/second (default
+    WALKING_SPEED_M_PER_S, see MIN_PACE_M_PER_S/MAX_PACE_M_PER_S for the
+    valid range) -- rescales the reported walking_time_s only. The graph is
+    still searched at the WALKING_SPEED_M_PER_S weighting regardless of
+    pace (see _pace_time_scale for why that doesn't change which path is
+    shortest), so pace never affects reachability or route choice, only how
+    long the chosen route is reported to take.
     """
     if mobility_profile not in MOBILITY_PROFILES:
         raise ValueError(f"mobility_profile must be one of {MOBILITY_PROFILES}, got {mobility_profile!r}")
+    pace_scale = _pace_time_scale(pace_m_per_s)
 
     if aeds is None:
         aeds = load_aeds()
@@ -444,7 +491,7 @@ def rank_by_walking_time(
                     longitude=lon,
                     reachable=True,
                     walking_distance_m=distance_m,
-                    walking_time_s=time_s,
+                    walking_time_s=time_s * pace_scale,
                     uses_stairs=uses_stairs,
                     crosses_unmarked_road=crosses_unmarked_road,
                     uses_permissive_access=uses_permissive_access,
@@ -458,6 +505,125 @@ def rank_by_walking_time(
         key=lambda r: (not r["reachable"], r["walking_time_s"] if r["reachable"] else float("inf"))
     )
     return ranked
+
+
+class RouteGeometry(TypedDict):
+    aed_id: str
+    reachable: bool
+    walking_route: Optional[List[Tuple[float, float]]]
+    walking_distance_m: Optional[float]
+    walking_time_s: Optional[float]
+    straight_line: List[Tuple[float, float]]
+    straight_line_distance_m: float
+    uses_stairs: Optional[bool]
+    crosses_unmarked_road: Optional[bool]
+    uses_permissive_access: Optional[bool]
+    uses_synthetic_entrance: Optional[bool]
+    mobility_note: Optional[str]
+
+
+def get_route_geometry(
+    test_lat: float,
+    test_lon: float,
+    aed_id: str,
+    aeds: Optional[List[dict]] = None,
+    graph: Optional["ox.MultiDiGraph"] = None,
+    mobility_profile: str = "walk",
+    pace_m_per_s: float = WALKING_SPEED_M_PER_S,
+) -> Optional[RouteGeometry]:
+    """
+    Frontend map-drawing support: the real walking-network route (as an
+    ordered list of (lat, lon) points to draw a polyline with) from a test
+    point to one specific AED, alongside the straight-line baseline between
+    the same two points for visual comparison. Everything here reuses
+    rank_by_walking_time's own graph/shortest-path machinery so the drawn
+    route is provably the same path that route's sub-scores were computed
+    from, not a separately-approximated line.
+
+    Returns None if aed_id doesn't match any AED in `aeds` (caller should
+    404). If no path exists in the walking network, walking_route/
+    walking_distance_m/walking_time_s are None (reachable=False) -- the
+    straight-line baseline is still returned so the frontend can show *why*
+    a straight line looks walkable but the real network disagrees.
+
+    The walking_route always starts/ends at the exact test point/AED
+    coordinate (not the snapped graph node) so the drawn line reads as a
+    real point-to-point route, not one that visibly stops short at whatever
+    street node it snapped to.
+    """
+    pace_scale = _pace_time_scale(pace_m_per_s)
+
+    if aeds is None:
+        aeds = load_aeds()
+    props = next((p for p in aeds if p["AED_ID"] == aed_id), None)
+    if props is None:
+        return None
+
+    if graph is None:
+        graph = load_walk_graph()
+    active_graph = graph if mobility_profile == "walk" else load_wheelchair_graph(graph)
+
+    aed_lat = props["LATITUDE"]
+    aed_lon = props["LONGITUDE"]
+    straight_line = [(test_lat, test_lon), (aed_lat, aed_lon)]
+    straight_line_distance_m = haversine_distance_m(test_lat, test_lon, aed_lat, aed_lon)
+
+    test_node = ox.distance.nearest_nodes(active_graph, X=test_lon, Y=test_lat)
+    aed_node = ox.distance.nearest_nodes(active_graph, X=aed_lon, Y=aed_lat)
+
+    try:
+        path = nx.shortest_path(active_graph, test_node, aed_node, weight="time_s")
+    except nx.NetworkXNoPath:
+        mobility_note = None
+        if mobility_profile == "wheelchair":
+            try:
+                nx.shortest_path(graph, test_node, aed_node, weight="time_s")
+                mobility_note = (
+                    "A walking route exists but requires stairs; no stairs-free "
+                    "path was found in the mapped pedestrian network."
+                )
+            except nx.NetworkXNoPath:
+                pass
+        return RouteGeometry(
+            aed_id=aed_id,
+            reachable=False,
+            walking_route=None,
+            walking_distance_m=None,
+            walking_time_s=None,
+            straight_line=straight_line,
+            straight_line_distance_m=straight_line_distance_m,
+            uses_stairs=None,
+            crosses_unmarked_road=None,
+            uses_permissive_access=None,
+            uses_synthetic_entrance=None,
+            mobility_note=mobility_note,
+        )
+
+    distance_m, uses_stairs, crosses_unmarked_road, uses_permissive_access, uses_synthetic_entrance = _walk_path(
+        active_graph, path
+    )
+    time_s = pace_scale * sum(
+        min(d.get("time_s", float("inf")) for d in active_graph.get_edge_data(u, v).values())
+        for u, v in zip(path, path[1:])
+    )
+
+    node_coords = [(active_graph.nodes[n]["y"], active_graph.nodes[n]["x"]) for n in path]
+    walking_route = [(test_lat, test_lon), *node_coords, (aed_lat, aed_lon)]
+
+    return RouteGeometry(
+        aed_id=aed_id,
+        reachable=True,
+        walking_route=walking_route,
+        walking_distance_m=distance_m,
+        walking_time_s=time_s,
+        straight_line=straight_line,
+        straight_line_distance_m=straight_line_distance_m,
+        uses_stairs=uses_stairs,
+        crosses_unmarked_road=crosses_unmarked_road,
+        uses_permissive_access=uses_permissive_access,
+        uses_synthetic_entrance=uses_synthetic_entrance,
+        mobility_note=None,
+    )
 
 
 def compute_snap_collision_confidence(

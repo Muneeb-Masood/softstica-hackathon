@@ -263,6 +263,26 @@
   line-height: 1.4;
 }
 
+.pace-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pace-slider-row input[type="range"] {
+  flex: 1 1 auto;
+  accent-color: var(--accent);
+}
+
+.pace-value {
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  min-width: 62px;
+  text-align: right;
+}
+
 .route-flag {
   font-size: 10px;
   font-weight: 700;
@@ -370,11 +390,26 @@
   text-align: left;
 }
 
+.result-card-selected {
+  box-shadow: 0 0 0 2px #1a73e8;
+}
+
 .result-card-head {
   display: flex;
   align-items: center;
   gap: 6px;
   margin-bottom: 6px;
+}
+
+.result-card-head-clickable {
+  cursor: pointer;
+}
+
+.results-hint {
+  font-size: 11px;
+  color: var(--text);
+  font-style: italic;
+  margin: 0 0 8px;
 }
 
 .rank-number {
@@ -555,6 +590,22 @@
   height: 10px;
   border-radius: 50%;
   display: inline-block;
+}
+
+.legend-line {
+  width: 18px;
+  height: 0;
+  border-top: 3px solid;
+  display: inline-block;
+}
+
+.legend-line-route {
+  border-color: #1a73e8;
+}
+
+.legend-line-baseline {
+  border-top-style: dashed;
+  border-color: #9aa0a6;
 }
 
 .crowd-sim-note {

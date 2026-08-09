@@ -1,6 +1,6 @@
 INFO:     Will watch for changes in these directories: ['D:\\softstica_hackathon\\backend']
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process [20792] using StatReload
+INFO:     Started reloader process [28284] using StatReload
 D:\softstica_hackathon\backend\chat_qa.py:47: FutureWarning: 
 
 All support for the `google.generativeai` package has ended. It will no longer be receiving 
@@ -10,19 +10,149 @@ See README for more details:
 https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/README.md
 
   import google.generativeai as genai
-INFO:     Started server process [25716]
+INFO:     Started server process [23232]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     127.0.0.1:51059 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51063 - "POST /rank HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51067 - "POST /rank HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51119 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51119 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51119 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51126 - "GET /aeds HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51126 - "OPTIONS /rank/timeline HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51126 - "OPTIONS /rank HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51119 - "POST /rank/timeline HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51126 - "POST /rank HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51139 - "OPTIONS /crowd-simulation HTTP/1.1" 200 OK
-INFO:     127.0.0.1:51139 - "POST /crowd-simulation HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51358 - "GET /route?aed_id=098140-015&lat=1.2547&lon=103.8238&mobility=walk HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51406 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51407 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51446 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51447 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51447 - "OPTIONS /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51447 - "OPTIONS /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51447 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51447 - "GET /route?aed_id=098140-006&lat=1.2525143040387157&lon=103.8200068473816&mobility=walk HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51446 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51479 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51480 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51480 - "OPTIONS /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51479 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51479 - "OPTIONS /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51480 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51480 - "GET /route?aed_id=098140-006&lat=1.2525143040387157&lon=103.8200068473816&mobility=walk HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51514 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51515 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51515 - "OPTIONS /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51514 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51514 - "OPTIONS /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51515 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51515 - "GET /route?aed_id=098140-006&lat=1.2525143040387157&lon=103.8200068473816&mobility=walk HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51571 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51572 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51572 - "OPTIONS /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51571 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51571 - "OPTIONS /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51572 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51572 - "GET /route?aed_id=098140-006&lat=1.2525143040387157&lon=103.8200068473816&mobility=walk HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51634 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51634 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51634 - "OPTIONS /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51634 - "OPTIONS /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51634 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51634 - "GET /route?aed_id=098466-001&lat=1.2564188547874744&lon=103.8168939225003&mobility=walk HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51635 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51644 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51644 - "GET /route?aed_id=099701-001&lat=1.2548123219347453&lon=103.81803201698412&mobility=walk HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51642 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51681 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51689 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51730 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51735 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51735 - "GET /route?aed_id=099701-001&lat=1.254210166301527&lon=103.81663648821842&mobility=walk HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51752 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51753 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51753 - "OPTIONS /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51752 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51752 - "OPTIONS /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51753 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51753 - "GET /route?aed_id=098140-006&lat=1.2525143040387157&lon=103.8200068473816&mobility=walk HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51775 - "GET /route?aed_id=098140-009&lat=1.2525143040387157&lon=103.8200068473816&mobility=walk HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51809 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51809 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51810 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51810 - "GET /route?aed_id=098466-001&lat=1.254488736128233&lon=103.81631418976002&mobility=walk HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51809 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51817 - "GET /route?aed_id=099701-001&lat=1.254488736128233&lon=103.81631418976002&mobility=walk HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51817 - "GET /route?aed_id=098973-001&lat=1.254488736128233&lon=103.81631418976002&mobility=walk HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51821 - "GET /route?aed_id=098588-001&lat=1.254488736128233&lon=103.81631418976002&mobility=walk HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51823 - "GET /route?aed_id=098679-003&lat=1.254488736128233&lon=103.81631418976002&mobility=walk HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51833 - "GET /route?aed_id=098679-002&lat=1.254488736128233&lon=103.81631418976002&mobility=walk HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51836 - "GET /route?aed_id=098679-002&lat=1.2550399432284258&lon=103.81659418491408&mobility=walk HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51838 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51838 - "GET /route?aed_id=098466-001&lat=1.2551954091772588&lon=103.81695888348005&mobility=walk HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51835 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51835 - "GET /route?aed_id=098140-002&lat=1.2551954091772588&lon=103.81695888348005&mobility=walk HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51836 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51836 - "GET /route?aed_id=098140-004&lat=1.2551954091772588&lon=103.81695888348005&mobility=walk HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51837 - "POST /rank/timeline HTTP/1.1" 200 OK
+WARNING:  StatReload detected changes in 'distance_ranking.py'. Reloading...
+ INFO:     127.0.0.1:52208 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52234 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52234 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52234 - "OPTIONS /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52234 - "OPTIONS /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52238 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52238 - "GET /route?aed_id=098466-001&lat=1.2558398783745195&lon=103.81517769395447&mobility=walk&pace=average HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52252 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52252 - "GET /route?aed_id=098466-001&lat=1.2558398783745195&lon=103.81517769395447&mobility=walk&pace=cautious HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52235 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52238 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52235 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52235 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52235 - "GET /route?aed_id=098466-001&lat=1.2558398783745195&lon=103.81517769395447&mobility=walk&pace=brisk HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52257 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52257 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52257 - "GET /route?aed_id=098466-001&lat=1.2558398783745195&lon=103.81517769395447&mobility=walk&pace=average HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52257 - "GET /route?aed_id=099701-001&lat=1.2558398783745195&lon=103.81517769395447&mobility=walk&pace=average HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52276 - "GET /route?aed_id=099701-001&lat=1.2549698915677987&lon=103.81753890513812&mobility=walk&pace=average HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52275 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52275 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52275 - "GET /route?aed_id=099701-001&lat=1.2549698915677987&lon=103.81753890513812&mobility=walk&pace=average HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52294 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52294 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52294 - "GET /route?aed_id=099701-001&lat=1.2549698915677987&lon=103.81753890513812&mobility=walk&pace=cautious HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52294 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52275 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52293 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "GET /route?aed_id=098466-001&lat=1.254787833565746&lon=103.8168522861144&mobility=walk&pace=cautious HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52297 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52297 - "GET /route?aed_id=098466-001&lat=1.254787833565746&lon=103.8168522861144&mobility=walk&pace=average HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52275 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52294 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52371 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52376 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52376 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52371 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52389 - "OPTIONS /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52390 - "OPTIONS /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52390 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52390 - "GET /route?aed_id=098466-001&lat=1.2563759676501651&lon=103.81384761683138&mobility=walk&pace=cautious HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52395 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52395 - "GET /route?aed_id=098466-001&lat=1.2563759676501651&lon=103.81384761683138&mobility=walk&pace=average HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52389 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52390 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52401 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52401 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52401 - "GET /route?aed_id=098466-001&lat=1.2563759676501651&lon=103.81384761683138&mobility=walk&pace=cautious HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52401 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52401 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52401 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52558 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52558 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52559 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52559 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52601 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52601 - "GET /route?aed_id=098466-001&lat=1.255625442633458&lon=103.8145126553929&mobility=walk&pace_m_per_s=2.02 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52605 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52605 - "GET /route?aed_id=098466-001&lat=1.255625442633458&lon=103.8145126553929&mobility=walk&pace_m_per_s=1.24 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52605 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52605 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52594 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52605 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52601 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52617 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52622 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52622 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52622 - "POST /rank HTTP/1.1" 200 OK

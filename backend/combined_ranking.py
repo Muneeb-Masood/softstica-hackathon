@@ -83,6 +83,17 @@ that case). This is a routing-input choice, not a trust/confidence score
 -- it changes which physical path is searched, not how a fixed path is
 scored, so it lives in distance_ranking.py's graph selection, not as
 another sub-score weight here.
+
+Pace: rank_combined and rank_combined_timeline also take a `pace_m_per_s`
+param (default distance_ranking.WALKING_SPEED_M_PER_S, ~1.34), a
+user-adjustable walking speed in meters/second exposed in the frontend as a
+slider, passed straight through to distance_ranking.rank_by_walking_time --
+see distance_ranking.py's MIN_PACE_M_PER_S/MAX_PACE_M_PER_S/
+_pace_time_scale docstring for the valid range and why pace only rescales
+reported walking_time_s (and therefore time_score/final_score) rather than
+changing which route is found. Like mobility_profile, this is a
+routing-input choice the user selects per-query, not a confidence/trust
+score of its own.
 """
 
 import math
@@ -91,6 +102,7 @@ from typing import Dict, List, Optional, Tuple, TypedDict
 
 from distance_ranking import (
     MOBILITY_PROFILES,
+    WALKING_SPEED_M_PER_S,
     compute_snap_collision_confidence,
     load_aeds,
     load_walk_graph,
@@ -163,12 +175,21 @@ def rank_combined(
     aeds: Optional[List[dict]] = None,
     graph: Optional["object"] = None,
     mobility_profile: str = "walk",
+    pace_m_per_s: float = WALKING_SPEED_M_PER_S,
 ) -> Tuple[List[RankedAed], List[ExcludedAed]]:
     """
     Rank Sentosa AEDs for a test location, date, and time.
 
     mobility_profile: "walk" (default) or "wheelchair" -- see module
     docstring "Mobility profile" section.
+
+    pace_m_per_s: user-selected walking speed in meters/second (default
+    WALKING_SPEED_M_PER_S, ~1.34), passed straight through to
+    distance_ranking.rank_by_walking_time -- see that module's
+    MIN_PACE_M_PER_S/MAX_PACE_M_PER_S/_pace_time_scale for the valid range
+    and why it only rescales reported time, not route choice. Affects
+    time_score (and therefore final_score) but not distance_confidence,
+    hours_confidence, or trust_score, which don't depend on walking speed.
 
     Returns (ranked, excluded):
         ranked   -- AEDs with a full final_score, sorted best first, every
@@ -182,7 +203,7 @@ def rank_combined(
         graph = load_walk_graph()
 
     walking_by_id, distance_confidence_by_id = _shared_geometry(
-        test_lat, test_lon, aeds, graph, mobility_profile
+        test_lat, test_lon, aeds, graph, mobility_profile, pace_m_per_s
     )
     return _combine_for_datetime(test_dt, aeds, walking_by_id, distance_confidence_by_id)
 
@@ -193,6 +214,7 @@ def _shared_geometry(
     aeds: List[dict],
     graph: "object",
     mobility_profile: str = "walk",
+    pace_m_per_s: float = WALKING_SPEED_M_PER_S,
 ) -> Tuple[dict, dict]:
     """
     The two sub-scores that depend only on test location + AED coordinates,
@@ -203,7 +225,9 @@ def _shared_geometry(
     """
     if mobility_profile not in MOBILITY_PROFILES:
         raise ValueError(f"mobility_profile must be one of {MOBILITY_PROFILES}, got {mobility_profile!r}")
-    walking = rank_by_walking_time(test_lat, test_lon, aeds=aeds, graph=graph, mobility_profile=mobility_profile)
+    walking = rank_by_walking_time(
+        test_lat, test_lon, aeds=aeds, graph=graph, mobility_profile=mobility_profile, pace_m_per_s=pace_m_per_s
+    )
     walking_by_id = {r["aed_id"]: r for r in walking}
     distance_confidence_by_id = compute_snap_collision_confidence(aeds, graph)
     return walking_by_id, distance_confidence_by_id
@@ -301,6 +325,7 @@ def rank_combined_timeline(
     graph: Optional["object"] = None,
     hours: Optional[List[int]] = None,
     mobility_profile: str = "walk",
+    pace_m_per_s: float = WALKING_SPEED_M_PER_S,
 ) -> Dict[int, Tuple[datetime, List[RankedAed], List[ExcludedAed]]]:
     """
     Phase 9: rank_combined for every hour of one day at a fixed test
@@ -311,6 +336,10 @@ def rank_combined_timeline(
     mobility_profile: "walk" (default) or "wheelchair" -- see module
     docstring "Mobility profile" section. Fixed for the whole timeline
     query, same as the test location.
+
+    pace_m_per_s: user-selected walking speed in meters/second (default
+    WALKING_SPEED_M_PER_S) -- see rank_combined. Fixed for the whole
+    timeline query, same as mobility.
 
     Returns {hour: (test_dt, ranked, excluded)} for hour in `hours`
     (default 0..23).
@@ -323,7 +352,7 @@ def rank_combined_timeline(
         hours = list(range(24))
 
     walking_by_id, distance_confidence_by_id = _shared_geometry(
-        test_lat, test_lon, aeds, graph, mobility_profile
+        test_lat, test_lon, aeds, graph, mobility_profile, pace_m_per_s
     )
 
     result: Dict[int, Tuple[datetime, List[RankedAed], List[ExcludedAed]]] = {}
