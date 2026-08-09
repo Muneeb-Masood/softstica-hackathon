@@ -8,6 +8,7 @@ import CrowdSimulation from "./CrowdSimulation";
 import NeedsVerification from "./NeedsVerification";
 import OnboardingModal from "./OnboardingModal";
 import Section from "./Section";
+import ChatPanel from "./ChatPanel";
 import { fetchAeds, fetchCrowdSimulation, fetchRanking, fetchTimeline } from "./api";
 import { BADGE_COLORS } from "./trustBadge";
 import "./App.css";
@@ -44,6 +45,14 @@ function App() {
   const [crowdResult, setCrowdResult] = useState(null);
   const [crowdLoading, setCrowdLoading] = useState(false);
   const [crowdError, setCrowdError] = useState(null);
+
+  // One id per page load, used only to key the backend's per-session chat
+  // message cap (chat_qa.py) -- not an auth token, not persisted.
+  const [chatSessionId] = useState(() =>
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `session-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  );
 
   useEffect(() => {
     fetchAeds()
@@ -243,6 +252,10 @@ function App() {
           </div>
         </div>
       </div>
+
+      {ranking && ranking.ranked && ranking.ranked.length > 0 && (
+        <ChatPanel context={ranking} sessionId={chatSessionId} />
+      )}
     </div>
   );
 }

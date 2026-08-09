@@ -21,6 +21,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from chat_qa import MAX_MESSAGES_PER_SESSION, RateLimitError, answer_question
 from combined_ranking import rank_combined, rank_combined_timeline
 from crowd_simulation import run_crowd_simulation
 from distance_ranking import load_aeds, load_walk_graph
@@ -251,6 +252,54 @@ def rank(req: RankRequest):
         "ranked": ranked,
         "excluded": excluded,
         "explanations": explanations,
+        "disclaimer": DISCLAIMER,
+    }
+
+
+class ChatMessageIn(BaseModel):
+    role: Literal["user", "assistant"]
+    text: str
+
+
+class ChatRequest(BaseModel):
+    session_id: str
+    question: str
+    # The frontend's already-computed ranking payload for whatever is
+    # currently on screen -- {query, ranked, excluded, explanations}, i.e.
+    # exactly the shape returned by /rank (or one hour's slice of
+    # /rank/timeline). This endpoint does no ranking of its own; see
+    # chat_qa.py.
+    context: dict
+    history: List[ChatMessageIn] = []
+
+
+@app.post("/chat")
+def chat(req: ChatRequest):
+    """
+    Read-only Q&A over an already-computed ranking (chat_qa.py). Never
+    reranks or recomputes -- answers are grounded strictly in `req.context`,
+    the exact payload the frontend already has on screen. Rate-limited per
+    session (chat_qa.MAX_MESSAGES_PER_SESSION) as a demo cost safeguard.
+    """
+    if not req.session_id:
+        raise HTTPException(status_code=422, detail="session_id is required")
+    try:
+        result = answer_question(
+            session_id=req.session_id,
+            question=req.question,
+            context=req.context,
+            history=[{"role": m.role, "text": m.text} for m in req.history],
+        )
+    except RateLimitError as e:
+        raise HTTPException(status_code=429, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    return {
+        "answer": result["answer"],
+        "messages_used": result["messages_used"],
+        "messages_remaining": result["messages_remaining"],
+        "max_messages": MAX_MESSAGES_PER_SESSION,
         "disclaimer": DISCLAIMER,
     }
 

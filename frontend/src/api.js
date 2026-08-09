@@ -57,6 +57,21 @@ export async function fetchAedDetail({ aedId, lat, lon, date, time, mobility = "
   return res.json();
 }
 
+export async function sendChatMessage({ sessionId, question, context, history = [] }) {
+  const res = await fetch(`${API_BASE}/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_id: sessionId, question, context, history }),
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    const err = new Error(`POST /chat failed: ${res.status} ${detail}`);
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
+}
+
 export async function fetchCrowdSimulation({ buildingName, date, time, nPerSide }) {
   const res = await fetch(`${API_BASE}/crowd-simulation`, {
     method: "POST",

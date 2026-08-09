@@ -1,4 +1,7 @@
-D:\softstica_hackathon\backend\explanation.py:45: FutureWarning: 
+INFO:     Will watch for changes in these directories: ['D:\\softstica_hackathon\\backend']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [15284] using StatReload
+D:\softstica_hackathon\backend\chat_qa.py:34: FutureWarning: 
 
 All support for the `google.generativeai` package has ended. It will no longer be receiving 
 updates or bug fixes. Please switch to the `google.genai` package as soon as possible.
@@ -7,9 +10,43 @@ See README for more details:
 https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/README.md
 
   import google.generativeai as genai
-INFO:     Started server process [18568]
+INFO:     Started server process [18240]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-ERROR:    [Errno 10048] error while attempting to bind on address ('127.0.0.1', 8000): only one usage of each socket address (protocol/network address/port) is normally permitted
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
+INFO:     127.0.0.1:50107 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50110 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50570 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50571 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50571 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50571 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50571 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50570 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50570 - "OPTIONS /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50570 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50570 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50609 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50609 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50624 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50638 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50697 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50697 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50698 - "OPTIONS /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50698 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50697 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50726 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50726 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50735 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50735 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50736 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50735 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50761 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50761 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50792 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50792 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50793 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50792 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50803 - "OPTIONS /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50803 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50804 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50812 - "POST /chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50813 - "POST /chat HTTP/1.1" 200 OK
