@@ -24,7 +24,12 @@ from pydantic import BaseModel
 from combined_ranking import rank_combined, rank_combined_timeline
 from crowd_simulation import run_crowd_simulation
 from distance_ranking import load_aeds, load_walk_graph
-from explanation import generate_aed_detail, generate_explanation, generate_timeline_explanations
+from explanation import (
+    generate_aed_detail,
+    generate_explanation,
+    generate_timeline_explanations,
+    generate_trust_explanation,
+)
 from trust_score import explain_trust_score, score_aed_properties
 
 DISCLAIMER = (
@@ -190,6 +195,32 @@ def get_needs_verification():
         "items": items,
         "medium_items": medium_items,
     }
+
+
+@app.get("/aeds/{aed_id}/trust-explanation")
+def aed_trust_explanation(aed_id: str):
+    """
+    Personalized "Why is this AED flagged {badge}?" text for the Phase 11
+    registry-quality list -- grounded in this specific record's own
+    description/hours wording, unlike explain_trust_score()'s generic
+    per-component template strings (which read identically for any two
+    records dinged for the same reason). Not location/time-scoped: the
+    trust badge is a fixed registry-quality property (see trust_score.py),
+    so this call is cached forever per AED_ID's current field values.
+    """
+    aeds = load_aeds()
+    props = next((p for p in aeds if p["AED_ID"] == aed_id), None)
+    if props is None:
+        raise HTTPException(status_code=404, detail=f"AED_ID {aed_id!r} not found in the Sentosa dataset.")
+
+    result = generate_trust_explanation(aed_id, props)
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"AED_ID {aed_id!r} has a High trust badge -- nothing to explain.",
+        )
+
+    return {"aed_id": aed_id, "trust_explanation": result["trust_explanation"], "source": result["source"]}
 
 
 @app.post("/rank")

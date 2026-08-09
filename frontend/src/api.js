@@ -38,6 +38,15 @@ export async function fetchNeedsVerification() {
   return res.json();
 }
 
+export async function fetchTrustExplanation(aedId) {
+  const res = await fetch(`${API_BASE}/aeds/${encodeURIComponent(aedId)}/trust-explanation`);
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`GET /aeds/${aedId}/trust-explanation failed: ${res.status} ${detail}`);
+  }
+  return res.json();
+}
+
 export async function fetchAedDetail({ aedId, lat, lon, date, time, mobility = "walk" }) {
   const params = new URLSearchParams({ lat, lon, date, time, mobility });
   const res = await fetch(`${API_BASE}/aed/${encodeURIComponent(aedId)}/detail?${params}`);

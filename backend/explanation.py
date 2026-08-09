@@ -85,10 +85,11 @@ import google.generativeai as genai
 
 from combined_ranking import ExcludedAed, RankedAed
 from distance_ranking import load_aeds
-from trust_score import AccessBarrierInfo, describe_access_barrier
+from trust_score import AccessBarrierInfo, TrustScore, describe_access_barrier, explain_trust_score, score_aed_properties
 
 CACHE_DIR = os.path.join(os.path.dirname(__file__), "cache", "explanations")
 DETAIL_CACHE_DIR = os.path.join(os.path.dirname(__file__), "cache", "aed_detail")
+TRUST_CACHE_DIR = os.path.join(os.path.dirname(__file__), "cache", "trust_explanations")
 MODEL_NAME = "models/gemini-2.5-flash"
 
 # Phase 9 (time slider): a full-day timeline query has up to 24 hourly
@@ -771,3 +772,172 @@ def generate_timeline_explanations(
             )
 
     return explanations_by_hour, stats
+
+
+# Trust-badge explanation ("Why is this Needs Verification/Medium?"): unlike
+# generate_explanation/generate_aed_detail above, this is NOT keyed on a
+# test location/date/time at all -- trust_score.py's badge is a fixed
+# property of the registry record (floor/description/hours/access-barrier
+# text), evaluated at a fixed REFERENCE_TEST_DT (see trust_score.py). One
+# Gemini call per AED, cached forever per AED_ID (until the underlying
+# record's own fields change, guarded by hashing them into the cache key
+# below) -- never re-called on every "Why {badge}?" click.
+#
+# explain_trust_score() already gives a templated reason per dinged
+# component (e.g. every vague-description AED gets the identical boilerplate
+# "no recognizable concrete landmark..."), which is honest but generic
+# across records with different actual text. This function's job is to say
+# the SAME facts but grounded in that specific record's actual wording, so
+# two different "Medium, description unclear" AEDs read as two different
+# explanations instead of the same canned sentence twice.
+TRUST_MODEL_NAME = "models/gemini-2.5-flash"
+
+_trust_model_cache: Optional["genai.GenerativeModel"] = None
+
+_TRUST_FEW_SHOT_EXAMPLES = """\
+Example 1 -- vague-only description, Needs Verification:
+Input: aed_id=098140-017, building=Universal Studios Singapore, floor=1, description="Level 1 Water World (Behind Middle Section Of Seating Gallery)", hours="Mon-Sun 00:00-23:59", badge=Needs Verification, template_reasons=["Location description relies only on vague directional wording (e.g. 'near', 'opposite', 'beside') with no concrete landmark to anchor it."]
+Output: {"trust_explanation": "The description says \\"Behind Middle Section Of Seating Gallery\\" \\u2014 \\"behind\\" and \\"middle section\\" are relative directions, not a fixed thing to search for (no counter, pillar, or entrance named), so once someone reaches Water World they have nothing concrete to walk toward."}
+
+Example 2 -- unclear-but-not-vague description, Medium:
+Input: aed_id=098140-014, building=Universal Studios Singapore, floor=1, description="Level 1 Jurassic Park Rapids Adventure", badge=Medium, template_reasons=["Location description has no recognizable concrete landmark or directional wording -- unclear as written."]
+Output: {"trust_explanation": "The description just names the ride itself, \\"Jurassic Park Rapids Adventure\\", with no landmark inside or around it \\u2014 it says which attraction to go to, but not where at that attraction the AED actually is."}
+
+Example 3 -- access barrier, Medium:
+Input: aed_id=098269-010, building=Resorts World Casino, description="Casino - 10 AEDs Available. Please Approach RWS Staffs For Assistance", badge=Medium, template_reasons=["Location description flags an access barrier -- requires locating security/staff for access (matched: \\"Please Approach\\"). This is a trust/confidence penalty only -- no delay time is estimated or added to the walking-time ranking."]
+Output: {"trust_explanation": "The description itself says to \\"Approach RWS Staffs For Assistance\\" \\u2014 that's a real, stated extra step (finding and asking staff) before reaching any of the 10 AEDs it lists, even though the casino location itself is clearly named."}
+
+Example 4 -- missing floor level, Medium:
+Input: aed_id=EXAMPLE-001, building=Example Building, floor=null, description="Near main entrance", badge=Medium, template_reasons=["Floor level is not recorded in the registry."]
+Output: {"trust_explanation": "The registry doesn't record a floor number for this AED \\u2014 the rest of the description may be fine, but in a multi-storey building there's no way to know which level to start searching on."}
+
+Example 5 -- unparseable operating hours, Needs Verification:
+Input: aed_id=EXAMPLE-002, building=Example Mall, floor=2, description="Level 2 Foyer, Beside Lift Lobby", hours="Daily, hours vary", badge=Needs Verification, template_reasons=["Operating hours could not be parsed at all; open/closed status would show as 'unknown'."]
+Output: {"trust_explanation": "The operating-hours text \\"Daily, hours vary\\" doesn't give actual times, so this tool can never tell you whether the location is open right now \\u2014 it will always show as \\"unknown\\" instead of a real open/closed status."}
+"""
+
+_TRUST_SYSTEM_INSTRUCTION = """\
+You write a short plain-language explanation of why ONE specific AED \
+(defibrillator) registry record was flagged below a "High" data-quality \
+badge, for a SIMULATION/PREPAREDNESS tool -- not a live emergency app. \
+You are given the record's actual fields (building, floor, description, \
+operating hours) plus the badge it received and template_reasons -- the \
+generic, already-computed reason(s) for each dinged component. Your job \
+is NOT to recompute or second-guess the score; it is to restate the SAME \
+facts in a way that is grounded in this record's actual wording, so a \
+reader sees why THIS specific record reads as vague/unclear/barrier-\
+flagged/etc., not a canned sentence that would read identically for a \
+different record with the same badge.
+
+Write "trust_explanation": 1-2 sentences that:
+- Quote or closely paraphrase the actual description/hours text driving \
+the flag (do not invent wording that isn't in the record).
+- Explain concretely, in plain terms, why that specific wording is a \
+problem (e.g. what's missing, what's ambiguous, what extra step it \
+implies) -- not just repeating "it's vague" without saying what about it \
+is vague.
+- Stay strictly limited to what template_reasons already established -- \
+do not add a new reason category, invent a barrier, or claim a badge \
+component that wasn't given to you.
+- Never claim real-time AED availability or working condition, and never \
+state this as more certain than the registry text supports.
+
+Respond with ONLY a JSON object with key "trust_explanation" (string). No \
+markdown, no extra keys, no commentary outside the JSON.
+
+""" + _TRUST_FEW_SHOT_EXAMPLES
+
+
+class TrustExplanationResult(TypedDict):
+    aed_id: str
+    trust_explanation: str
+    source: str  # "gemini" or "cache"
+
+
+def _get_trust_model() -> "genai.GenerativeModel":
+    global _trust_model_cache
+    if _trust_model_cache is None:
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            raise RuntimeError(
+                "GEMINI_API_KEY not set. Add it to backend/.env (see .env.example)."
+            )
+        genai.configure(api_key=api_key)
+        _trust_model_cache = genai.GenerativeModel(
+            TRUST_MODEL_NAME,
+            system_instruction=_TRUST_SYSTEM_INSTRUCTION,
+            generation_config=genai.GenerationConfig(
+                response_mime_type="application/json",
+                temperature=0.4,
+            ),
+        )
+    return _trust_model_cache
+
+
+def _trust_cache_key(aed_id: str, properties: dict, trust: TrustScore, template_reasons: List[str]) -> str:
+    payload = {
+        "aed_id": aed_id,
+        "building_name": properties.get("BUILDING_NAME"),
+        "floor_level": properties.get("AED_LOCATION_FLOOR_LEVEL"),
+        "description": properties.get("AED_LOCATION_DESCRIPTION"),
+        "operating_hours": properties.get("OPERATING_HOURS"),
+        "badge": trust["badge"],
+        "template_reasons": template_reasons,
+    }
+    raw = json.dumps(payload, sort_keys=True)
+    return hashlib.sha1(raw.encode("utf-8")).hexdigest()
+
+
+def _trust_cache_path(key: str) -> str:
+    return os.path.join(TRUST_CACHE_DIR, f"{key}.json")
+
+
+def generate_trust_explanation(aed_id: str, properties: Optional[dict] = None) -> Optional[TrustExplanationResult]:
+    """
+    Personalized "Why is this AED flagged {badge}?" text, grounded in this
+    record's own description/hours wording rather than the generic
+    per-component template strings in trust_score.explain_trust_score().
+
+    Returns None if the AED's badge is already "High" -- there is nothing
+    to explain (explain_trust_score() itself returns no reasons for a
+    maxed-out record, and a "why is this fine" call would have nothing
+    real to say).
+    """
+    if properties is None:
+        properties = next((p for p in load_aeds() if p["AED_ID"] == aed_id), None)
+        if properties is None:
+            return None
+
+    trust = score_aed_properties(properties)
+    if trust["badge"] == "High":
+        return None
+
+    template_reasons = explain_trust_score(properties, trust)
+
+    os.makedirs(TRUST_CACHE_DIR, exist_ok=True)
+    key = _trust_cache_key(aed_id, properties, trust, template_reasons)
+    path = _trust_cache_path(key)
+
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            cached = json.load(f)
+        return TrustExplanationResult(aed_id=aed_id, trust_explanation=cached["trust_explanation"], source="cache")
+
+    prompt = "\n".join([
+        f"aed_id={aed_id}",
+        f"building={properties.get('BUILDING_NAME')}",
+        f"floor={properties.get('AED_LOCATION_FLOOR_LEVEL')}",
+        f"description={properties.get('AED_LOCATION_DESCRIPTION')!r}",
+        f"hours={properties.get('OPERATING_HOURS')!r}",
+        f"badge={trust['badge']}",
+        f"template_reasons={template_reasons}",
+    ])
+    model = _get_trust_model()
+    response = model.generate_content(prompt)
+    parsed = json.loads(response.text)
+    explanation = parsed["trust_explanation"]
+
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump({"trust_explanation": explanation}, f, indent=2)
+
+    return TrustExplanationResult(aed_id=aed_id, trust_explanation=explanation, source="gemini")

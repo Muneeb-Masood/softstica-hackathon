@@ -1,8 +1,33 @@
 import { useEffect, useState } from "react";
-import { fetchNeedsVerification } from "./api";
+import { fetchNeedsVerification, fetchTrustExplanation } from "./api";
 import { badgeColor } from "./trustBadge";
 
-function VerificationItem({ item }) {
+// The per-component reasons (item.reasons) come from trust_score.py's
+// fixed template strings -- honest, but identical wording for any two
+// records dinged for the same reason (e.g. every vague-description AED
+// reads the same). This button fetches a personalized explanation instead,
+// grounded in THIS record's actual description/hours text (backend
+// explanation.generate_trust_explanation), fetched on demand and cached
+// per AED server-side.
+function WhyBadgeButton({ item, explanationState, onToggle }) {
+  const label = explanationState?.loading
+    ? "Loading…"
+    : explanationState?.expanded
+    ? "Hide personalized reason"
+    : `Why ${item.trust_badge}?`;
+  return (
+    <button
+      type="button"
+      className="why-button"
+      onClick={() => onToggle(item)}
+      disabled={explanationState?.loading}
+    >
+      {label}
+    </button>
+  );
+}
+
+function VerificationItem({ item, explanationState, onToggleExplanation }) {
   return (
     <li className="needs-verification-item">
       <div className="needs-verification-item-head">
@@ -23,6 +48,16 @@ function VerificationItem({ item }) {
           <li key={i}>{reason}</li>
         ))}
       </ul>
+      <WhyBadgeButton item={item} explanationState={explanationState} onToggle={onToggleExplanation} />
+      {explanationState?.expanded && (
+        explanationState.error ? (
+          <p className="result-explanation result-explanation-error">
+            Couldn't load explanation: {explanationState.error}
+          </p>
+        ) : explanationState.text ? (
+          <p className="result-explanation">{explanationState.text}</p>
+        ) : null
+      )}
     </li>
   );
 }
@@ -32,12 +67,41 @@ export default function NeedsVerification() {
   const [error, setError] = useState(null);
   const [openUrgent, setOpenUrgent] = useState(false);
   const [openMedium, setOpenMedium] = useState(false);
+  const [explanations, setExplanations] = useState({});
 
   useEffect(() => {
     fetchNeedsVerification()
       .then(setData)
       .catch((err) => setError(err.message));
   }, []);
+
+  async function handleToggleExplanation(item) {
+    const existing = explanations[item.aed_id];
+    const expanded = !existing?.expanded;
+    setExplanations((prev) => ({
+      ...prev,
+      [item.aed_id]: { ...prev[item.aed_id], expanded },
+    }));
+
+    if (existing?.text || existing?.loading) return;
+
+    setExplanations((prev) => ({
+      ...prev,
+      [item.aed_id]: { ...prev[item.aed_id], loading: true, error: null },
+    }));
+    try {
+      const res = await fetchTrustExplanation(item.aed_id);
+      setExplanations((prev) => ({
+        ...prev,
+        [item.aed_id]: { ...prev[item.aed_id], loading: false, text: res.trust_explanation },
+      }));
+    } catch (err) {
+      setExplanations((prev) => ({
+        ...prev,
+        [item.aed_id]: { ...prev[item.aed_id], loading: false, error: err.message },
+      }));
+    }
+  }
 
   return (
     <div id="needs-verification">
@@ -72,7 +136,12 @@ export default function NeedsVerification() {
           {openUrgent && (
             <ul className="needs-verification-list">
               {data.items.map((item) => (
-                <VerificationItem key={item.aed_id} item={item} />
+                <VerificationItem
+                  key={item.aed_id}
+                  item={item}
+                  explanationState={explanations[item.aed_id]}
+                  onToggleExplanation={handleToggleExplanation}
+                />
               ))}
             </ul>
           )}
@@ -95,7 +164,12 @@ export default function NeedsVerification() {
               {openMedium && (
                 <ul className="needs-verification-list needs-verification-list-secondary">
                   {data.medium_items.map((item) => (
-                    <VerificationItem key={item.aed_id} item={item} />
+                    <VerificationItem
+                      key={item.aed_id}
+                      item={item}
+                      explanationState={explanations[item.aed_id]}
+                      onToggleExplanation={handleToggleExplanation}
+                    />
                   ))}
                 </ul>
               )}
