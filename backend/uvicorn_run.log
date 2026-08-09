@@ -1,0 +1,52 @@
+D:\softstica_hackathon\backend\explanation.py:84: FutureWarning: 
+
+All support for the `google.generativeai` package has ended. It will no longer be receiving 
+updates or bug fixes. Please switch to the `google.genai` package as soon as possible.
+See README for more details:
+
+https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/README.md
+
+  import google.generativeai as genai
+INFO:     Started server process [5700]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:64828 - "GET /aeds/needs-verification HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64832 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64828 - "GET /aeds/needs-verification HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64833 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64833 - "OPTIONS /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64827 - "OPTIONS /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64840 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64833 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64827 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64846 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64826 - "GET /aeds/needs-verification HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64866 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64867 - "GET /aeds/needs-verification HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64826 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64826 - "OPTIONS /crowd-simulation HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64826 - "POST /crowd-simulation HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64875 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64876 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64898 - "GET /aeds/needs-verification HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64899 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64900 - "GET /aeds/needs-verification HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64898 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64902 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64901 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65120 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65119 - "GET /aeds/needs-verification HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65122 - "GET /aeds/needs-verification HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65121 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65125 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65130 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65175 - "GET /aeds/needs-verification HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65176 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65177 - "GET /aeds/needs-verification HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65175 - "GET /aeds HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65175 - "OPTIONS /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65177 - "OPTIONS /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65177 - "POST /rank HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65175 - "POST /rank/timeline HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65182 - "GET /aed/098269-010/detail?lat=1.2555899351093722&lon=103.81605863571168&date=2026-08-08&time=02%3A05 HTTP/1.1" 200 OK

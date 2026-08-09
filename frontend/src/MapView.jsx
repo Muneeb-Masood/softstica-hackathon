@@ -49,6 +49,13 @@ export default function MapView({ aeds, testPoint, onPickLocation, crowdResult }
             Hours: {aed.operating_hours || "unknown"}
             <br />
             Trust: {aed.trust_badge} ({aed.trust_score})
+            {aed.trust_badge_reasons && aed.trust_badge_reasons.length > 0 && (
+              <ul className="popup-trust-reasons">
+                {aed.trust_badge_reasons.map((reason, i) => (
+                  <li key={i}>{reason}</li>
+                ))}
+              </ul>
+            )}
           </Popup>
         </CircleMarker>
       ))}

@@ -190,6 +190,33 @@
   line-height: 1.4;
 }
 
+.trust-reasons {
+  font-size: 11px;
+  color: var(--text);
+  margin: 6px 0 0;
+  line-height: 1.4;
+}
+
+.trust-reasons-clean {
+  font-style: italic;
+}
+
+.trust-reasons-label {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.trust-reasons ul {
+  margin: 2px 0 0;
+  padding-left: 16px;
+}
+
+.popup-trust-reasons {
+  margin: 4px 0 0;
+  padding-left: 16px;
+  font-size: 11px;
+}
+
 .excluded-card {
   opacity: 0.85;
 }

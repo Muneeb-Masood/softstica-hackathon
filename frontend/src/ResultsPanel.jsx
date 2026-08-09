@@ -11,6 +11,31 @@ function TrustPill({ badge }) {
   );
 }
 
+// The trust badge is a rule-based data-quality signal (floor recorded?
+// description has a concrete landmark? hours parsed cleanly? any access
+// barrier?) -- CLAUDE.md requires the tool to "show uncertainty," so the
+// badge is never shown without saying which of those checks it failed.
+function TrustReasons({ badge, reasons }) {
+  if (!reasons || reasons.length === 0) {
+    return (
+      <p className="trust-reasons trust-reasons-clean">
+        {badge}: floor level recorded, location description has a concrete landmark,
+        operating hours parsed cleanly, and no access barrier was flagged.
+      </p>
+    );
+  }
+  return (
+    <div className="trust-reasons">
+      <span className="trust-reasons-label">Why {badge}:</span>
+      <ul>
+        {reasons.map((reason, i) => (
+          <li key={i}>{reason}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 // Explanations for #1..#5 arrive pre-fetched in one batch call (see
 // backend/explanation.py generate_explanation). Anything beyond that, or
 // any excluded (closed/unreachable) card, has no pre-fetched text -- the
@@ -81,6 +106,7 @@ function RankedCard({ rank, aed, index, explanations, note, query, detailState, 
         <span>Hours confidence: {formatPercent(aed.hours_confidence)}</span>
         <span>Score: {aed.final_score.toFixed(3)}</span>
       </div>
+      <TrustReasons badge={aed.trust_badge} reasons={aed.trust_badge_reasons} />
       {index === 0 && note && <p className="result-explanation-note">{note}</p>}
       <WhyButton state={state} onClick={() => onToggle(aed, preloadedExplanation, query)} />
       <ExplanationBlock state={state} preloadedExplanation={preloadedExplanation} />

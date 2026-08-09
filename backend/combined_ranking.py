@@ -79,7 +79,7 @@ from distance_ranking import (
     rank_by_walking_time,
 )
 from hours_parser import parse_operating_hours
-from trust_score import score_aed_properties
+from trust_score import explain_trust_score, score_aed_properties
 
 TIME_DECAY_S = 1200.0
 W_TIME = 0.55
@@ -101,6 +101,7 @@ class RankedAed(TypedDict):
     hours_confidence: float
     trust_score: int
     trust_badge: str
+    trust_badge_reasons: List[str]
     trust_normalized: float
     final_score: float
 
@@ -200,6 +201,7 @@ def _combine_for_datetime(
 
         hours_confidence = parse_confidence if status == "open" else 0.0
         trust = score_aed_properties(props)
+        trust_badge_reasons = explain_trust_score(props, trust)
         distance_confidence = distance_confidence_by_id[aed_id]
 
         time_score = math.exp(-w["walking_time_s"] / TIME_DECAY_S)
@@ -225,6 +227,7 @@ def _combine_for_datetime(
             hours_confidence=hours_confidence,
             trust_score=trust["total_score"],
             trust_badge=trust["badge"],
+            trust_badge_reasons=trust_badge_reasons,
             trust_normalized=trust_normalized,
             final_score=final_score,
         ))

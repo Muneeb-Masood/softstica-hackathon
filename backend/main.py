@@ -98,6 +98,7 @@ def get_aeds():
             "operating_hours": props.get("OPERATING_HOURS"),
             "trust_score": trust["total_score"],
             "trust_badge": trust["badge"],
+            "trust_badge_reasons": explain_trust_score(props, trust),
         })
     return {"count": len(result), "aeds": result}
 
