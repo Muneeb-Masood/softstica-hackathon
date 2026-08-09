@@ -210,8 +210,8 @@ export default function ResultsPanel({ ranking, loading, error }) {
   }
 
   return (
-    <div id="results-panel">
-      <h2>Ranked AEDs ({ranked.length})</h2>
+    <div className="results-subpanel">
+      <h2 className="subheading">Ranked AEDs ({ranked.length})</h2>
       {ranked.length === 0 && (
         <div className="results-status">
           No AEDs are open and reachable for this location/date/time. See the excluded list below.
@@ -231,7 +231,7 @@ export default function ResultsPanel({ ranking, loading, error }) {
         />
       ))}
 
-      <h2 className="excluded-heading">
+      <h2 className="subheading excluded-heading">
         Excluded ({excluded.length}) — closed or unreachable, not silently dropped
       </h2>
       {excluded.length === 0 ? (

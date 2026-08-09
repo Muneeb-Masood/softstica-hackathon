@@ -10,9 +10,7 @@ export default function QueryControls({
   submitting,
 }) {
   return (
-    <div id="query-controls">
-      <h2>Test query</h2>
-
+    <>
       <div className="control-row">
         <label>Test location</label>
         {testPoint ? (
@@ -82,6 +80,6 @@ export default function QueryControls({
       >
         {submitting ? "Ranking…" : "Find AEDs"}
       </button>
-    </div>
+    </>
   );
 }

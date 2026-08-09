@@ -6,9 +6,13 @@ import ResultsPanel from "./ResultsPanel";
 import TimeSlider from "./TimeSlider";
 import CrowdSimulation from "./CrowdSimulation";
 import NeedsVerification from "./NeedsVerification";
+import OnboardingModal from "./OnboardingModal";
+import Section from "./Section";
 import { fetchAeds, fetchCrowdSimulation, fetchRanking, fetchTimeline } from "./api";
 import { BADGE_COLORS } from "./trustBadge";
 import "./App.css";
+
+const ONBOARDING_SEEN_KEY = "aed_onboarding_seen";
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -19,6 +23,9 @@ function nowTimeStr() {
 }
 
 function App() {
+  const [showOnboarding, setShowOnboarding] = useState(
+    () => typeof window !== "undefined" && !window.localStorage.getItem(ONBOARDING_SEEN_KEY)
+  );
   const [aeds, setAeds] = useState([]);
   const [loadError, setLoadError] = useState(null);
   const [testPoint, setTestPoint] = useState(null);
@@ -130,52 +137,92 @@ function App() {
     }
   };
 
+  const handleCloseOnboarding = () => {
+    setShowOnboarding(false);
+    window.localStorage.setItem(ONBOARDING_SEEN_KEY, "1");
+  };
+
   return (
     <div id="app-shell">
+      {showOnboarding && <OnboardingModal onClose={handleCloseOnboarding} />}
+
       <header id="app-header">
         <h1>AED Discovery &amp; Routing — Sentosa Prototype</h1>
-        <span className="aed-count">{aeds.length} AEDs loaded</span>
+        <div className="header-right">
+          <span className="aed-count">{aeds.length} AEDs loaded</span>
+          <button
+            type="button"
+            id="help-button"
+            title="How to use this tool"
+            aria-label="How to use this tool"
+            onClick={() => setShowOnboarding(true)}
+          >
+            ?
+          </button>
+        </div>
       </header>
 
       <DisclaimerBanner />
 
       <div id="main-body">
         <aside id="sidebar">
-          <QueryControls
-            testPoint={testPoint}
-            date={date}
-            time={time}
-            mobility={mobility}
-            onDateChange={setDate}
-            onTimeChange={setTime}
-            onMobilityChange={handleMobilityChange}
-            onSubmit={handleRank}
-            submitting={rankLoading}
-          />
-          <ResultsPanel ranking={ranking} loading={rankLoading} error={rankError} />
+          <Section
+            title="Find AEDs"
+            helperText="Pick a location on the map, set a date and time, then rank nearby AEDs by real walking distance, operating hours, and data trust."
+          >
+            <QueryControls
+              testPoint={testPoint}
+              date={date}
+              time={time}
+              mobility={mobility}
+              onDateChange={setDate}
+              onTimeChange={setTime}
+              onMobilityChange={handleMobilityChange}
+              onSubmit={handleRank}
+              submitting={rankLoading}
+            />
+            <ResultsPanel ranking={ranking} loading={rankLoading} error={rankError} />
+          </Section>
 
-          <TimeSlider
-            timeline={timeline}
-            loading={timelineLoading}
-            error={timelineError}
-            hour={sliderHour}
-            onHourChange={setSliderHour}
-          />
-          {timeline && (
-            <ResultsPanel ranking={sliderRanking} loading={false} error={null} />
-          )}
+          <Section
+            title="Time Slider"
+            helperText="Drag through the hours of the day to see how the ranking for your chosen location shifts as operating hours change. Set a location and click Find AEDs first."
+          >
+            <TimeSlider
+              timeline={timeline}
+              loading={timelineLoading}
+              error={timelineError}
+              hour={sliderHour}
+              onHourChange={setSliderHour}
+            />
+            {timeline && (
+              <ResultsPanel ranking={sliderRanking} loading={false} error={null} />
+            )}
+          </Section>
 
-          <CrowdSimulation
-            aeds={aeds}
-            date={date}
-            time={time}
-            onRun={handleRunCrowdSimulation}
-            result={crowdResult}
-            loading={crowdLoading}
-            error={crowdError}
-          />
+          <Section
+            title="Crowd Simulation"
+            helperText="Spreads simulated starting points across a busy attraction and tallies which AED wins most often, revealing a potential bottleneck. Simulated points only, not real footfall."
+            defaultOpen={false}
+          >
+            <CrowdSimulation
+              aeds={aeds}
+              date={date}
+              time={time}
+              onRun={handleRunCrowdSimulation}
+              result={crowdResult}
+              loading={crowdLoading}
+              error={crowdError}
+            />
+          </Section>
 
-          <NeedsVerification />
+          <Section
+            title="Registry Quality"
+            helperText="Badges show how confidently each AED's location and hours could be verified from the data — 'Needs Verification' means it should be re-surveyed."
+            defaultOpen={false}
+          >
+            <NeedsVerification />
+          </Section>
         </aside>
 
         <div id="map-wrap">

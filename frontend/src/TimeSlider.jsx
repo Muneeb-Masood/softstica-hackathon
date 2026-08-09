@@ -19,8 +19,8 @@ export default function TimeSlider({ timeline, loading, error, hour, onHourChang
   }
 
   return (
-    <div id="time-slider">
-      <h2>Explore across the day — {timeline.query.date}</h2>
+    <div className="time-slider-inner">
+      <h2 className="subheading">Explore across the day — {timeline.query.date}</h2>
       <div className="slider-row">
         <span className="slider-hour-label">{hourLabel(hour)}</span>
         <input

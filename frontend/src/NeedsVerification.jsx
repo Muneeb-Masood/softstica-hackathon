@@ -104,8 +104,7 @@ export default function NeedsVerification() {
   }
 
   return (
-    <div id="needs-verification">
-      <h2>Registry quality (Phase 11)</h2>
+    <>
       <p className="needs-verification-note">
         AEDs whose location description and/or operating-hours text scored too low on the
         Phase 3 trust check to rely on as-is. This is a data-quality list for re-survey, not a
@@ -177,6 +176,6 @@ export default function NeedsVerification() {
           )}
         </>
       )}
-    </div>
+    </>
   );
 }

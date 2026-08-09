@@ -22,8 +22,7 @@ export default function CrowdSimulation({ aeds, date, time, onRun, result, loadi
   const hasAttraction = options.some(([name]) => name === attraction);
 
   return (
-    <div id="crowd-simulation">
-      <h2>Crowd simulation (Phase 10)</h2>
+    <>
       <p className="crowd-sim-note">
         Runs the ranking pipeline for a grid of SIMULATED starting points spread across
         one attraction's footprint and tallies which AED comes out #1 most often. Not
@@ -94,6 +93,6 @@ export default function CrowdSimulation({ aeds, date, time, onRun, result, loadi
           </ul>
         </div>
       )}
-    </div>
+    </>
   );
 }
