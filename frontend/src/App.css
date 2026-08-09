@@ -90,6 +90,70 @@
   font-style: italic;
 }
 
+.mobility-toggle {
+  display: flex;
+  gap: 6px;
+}
+
+.mobility-option {
+  flex: 1 1 auto;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.mobility-option.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.mobility-hint {
+  font-size: 11px;
+  font-style: italic;
+  color: var(--text);
+  margin: -8px 0 14px;
+  line-height: 1.4;
+}
+
+.route-flag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 8px;
+  white-space: nowrap;
+  color: #fff;
+}
+
+.route-flag-stairs {
+  background: #d93025;
+}
+
+.route-flag-road {
+  background: #e8710a;
+}
+
+.route-flag-permissive {
+  background: #9aa0a6;
+}
+
+.mobility-warning {
+  font-size: 11px;
+  color: #8a4b00;
+  background: #fff3cd;
+  border: 1px solid #ffe69c;
+  border-radius: 4px;
+  padding: 5px 8px;
+  margin: 6px 0 0;
+  line-height: 1.4;
+}
+
 #rank-button {
   font: inherit;
   font-size: 14px;

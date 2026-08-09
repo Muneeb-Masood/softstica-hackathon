@@ -24,6 +24,7 @@ function App() {
   const [testPoint, setTestPoint] = useState(null);
   const [date, setDate] = useState(todayStr());
   const [time, setTime] = useState(nowTimeStr());
+  const [mobility, setMobility] = useState("walk");
   const [ranking, setRanking] = useState(null);
   const [rankLoading, setRankLoading] = useState(false);
   const [rankError, setRankError] = useState(null);
@@ -56,7 +57,7 @@ function App() {
       setTimelineLoading(true);
       setTimelineError(null);
       try {
-        const data = await fetchTimeline({ lat: testPoint.lat, lon: testPoint.lon, date });
+        const data = await fetchTimeline({ lat: testPoint.lat, lon: testPoint.lon, date, mobility });
         if (cancelled) return;
         setTimeline(data);
         setSliderHour(Number(time.slice(0, 2)));
@@ -71,13 +72,13 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [testPoint, date, time]);
+  }, [testPoint, date, time, mobility]);
 
   const sliderHourData = timeline?.hours.find((h) => h.hour === sliderHour) ?? null;
   const sliderRanking = sliderHourData && {
     ranked: sliderHourData.ranked,
     excluded: sliderHourData.excluded,
-    query: testPoint && { lat: testPoint.lat, lon: testPoint.lon, date, time: sliderHourData.time },
+    query: testPoint && { lat: testPoint.lat, lon: testPoint.lon, date, time: sliderHourData.time, mobility },
     explanations: sliderHourData.explanation && {
       top_explanation: sliderHourData.explanation.top_explanation,
       comparisons: sliderHourData.explanation.comparisons,
@@ -93,12 +94,21 @@ function App() {
     setTimelineError(null);
   };
 
+  const handleMobilityChange = (value) => {
+    setMobility(value);
+    // Previous results were ranked under the old profile -- clear them
+    // rather than leave a stale walk-mode ranking on screen labeled as if
+    // it reflects the newly selected mobility setting.
+    setRanking(null);
+    setRankError(null);
+  };
+
   const handleRank = async () => {
     if (!testPoint) return;
     setRankLoading(true);
     setRankError(null);
     try {
-      const result = await fetchRanking({ lat: testPoint.lat, lon: testPoint.lon, date, time });
+      const result = await fetchRanking({ lat: testPoint.lat, lon: testPoint.lon, date, time, mobility });
       setRanking(result);
     } catch (err) {
       setRankError(err.message);
@@ -135,8 +145,10 @@ function App() {
             testPoint={testPoint}
             date={date}
             time={time}
+            mobility={mobility}
             onDateChange={setDate}
             onTimeChange={setTime}
+            onMobilityChange={handleMobilityChange}
             onSubmit={handleRank}
             submitting={rankLoading}
           />

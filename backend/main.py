@@ -15,7 +15,7 @@ Every request reuses those cached objects rather than reloading from disk.
 
 import time
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -60,6 +60,7 @@ class RankRequest(BaseModel):
     lon: float
     date: str  # YYYY-MM-DD
     time: str  # HH:MM
+    mobility: Literal["walk", "wheelchair"] = "walk"
 
 
 def _parse_test_dt(date_str: str, time_str: str) -> datetime:
@@ -70,6 +71,35 @@ def _parse_test_dt(date_str: str, time_str: str) -> datetime:
             status_code=422,
             detail="date must be YYYY-MM-DD and time must be HH:MM",
         )
+
+
+def _mobility_warning(item: dict) -> Optional[str]:
+    """
+    Deterministic, always-shown route-quality warning -- NOT dependent on
+    the Gemini explanation call, so it can never be missed or paraphrased
+    away. Built directly from distance_ranking's OSM-tag-derived flags
+    (uses_stairs, crosses_unmarked_road, uses_permissive_access; see that
+    module's docstring). Every AED whose route has one of these flags set
+    must surface this note wherever it's shown to a user.
+    """
+    notes = []
+    if item.get("uses_stairs"):
+        notes.append(
+            "This route includes stairs. If you are using a wheelchair or "
+            "cannot use stairs, do not use this route -- switch the mobility "
+            "setting to \"Wheelchair\" for a stairs-free route, if one exists."
+        )
+    if item.get("crosses_unmarked_road"):
+        notes.append(
+            "This route crosses a vehicle road with no marked pedestrian "
+            "crossing nearby in the map data -- cross with caution."
+        )
+    if item.get("uses_permissive_access"):
+        notes.append(
+            "This route relies on a path tagged as permissive access "
+            "(tolerated, not a guaranteed public right-of-way), not a public street."
+        )
+    return " ".join(notes) if notes else None
 
 
 @app.get("/health")
@@ -166,7 +196,9 @@ def get_needs_verification():
 def rank(req: RankRequest):
     test_dt = _parse_test_dt(req.date, req.time)
 
-    ranked, excluded = rank_combined(req.lat, req.lon, test_dt)
+    ranked, excluded = rank_combined(req.lat, req.lon, test_dt, mobility_profile=req.mobility)
+    for item in ranked:
+        item["mobility_warning"] = _mobility_warning(item)
 
     explanations = None
     if ranked:
@@ -183,6 +215,7 @@ def rank(req: RankRequest):
             "lon": req.lon,
             "date": req.date,
             "time": req.time,
+            "mobility": req.mobility,
         },
         "ranked": ranked,
         "excluded": excluded,
@@ -198,6 +231,7 @@ def aed_detail(
     lon: float = Query(...),
     date: str = Query(...),
     time: str = Query(...),
+    mobility: Literal["walk", "wheelchair"] = Query("walk"),
 ):
     """
     Direct, honest lookup for ONE specific AED at a test location/date/time,
@@ -213,14 +247,16 @@ def aed_detail(
     spot it hasn't earned.
     """
     test_dt = _parse_test_dt(date, time)
-    ranked, excluded = rank_combined(lat, lon, test_dt)
+    ranked, excluded = rank_combined(lat, lon, test_dt, mobility_profile=mobility)
     detail = generate_aed_detail(lat, lon, test_dt, ranked, excluded, aed_id)
+    if detail.get("sub_scores"):
+        detail["mobility_warning"] = _mobility_warning(detail["sub_scores"])
 
     if detail["status"] == "not_found":
         raise HTTPException(status_code=404, detail=f"AED_ID {aed_id!r} not found in the Sentosa dataset.")
 
     return {
-        "query": {"lat": lat, "lon": lon, "date": date, "time": time},
+        "query": {"lat": lat, "lon": lon, "date": date, "time": time, "mobility": mobility},
         "detail": detail,
         "disclaimer": DISCLAIMER,
     }
@@ -230,6 +266,7 @@ class TimelineRequest(BaseModel):
     lat: float
     lon: float
     date: str  # YYYY-MM-DD
+    mobility: Literal["walk", "wheelchair"] = "walk"
 
 
 def _parse_test_date(date_str: str):
@@ -254,12 +291,14 @@ def rank_timeline(req: TimelineRequest):
     """
     test_date = _parse_test_date(req.date)
 
-    hourly = rank_combined_timeline(req.lat, req.lon, test_date)
+    hourly = rank_combined_timeline(req.lat, req.lon, test_date, mobility_profile=req.mobility)
     explanations_by_hour, stats = generate_timeline_explanations(req.lat, req.lon, hourly)
 
     hours_payload = []
     for h in sorted(hourly.keys()):
         test_dt, ranked, excluded = hourly[h]
+        for item in ranked:
+            item["mobility_warning"] = _mobility_warning(item)
         hours_payload.append({
             "hour": h,
             "time": test_dt.strftime("%H:%M"),

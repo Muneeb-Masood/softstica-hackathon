@@ -6,11 +6,11 @@ export async function fetchAeds() {
   return res.json();
 }
 
-export async function fetchRanking({ lat, lon, date, time }) {
+export async function fetchRanking({ lat, lon, date, time, mobility = "walk" }) {
   const res = await fetch(`${API_BASE}/rank`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ lat, lon, date, time }),
+    body: JSON.stringify({ lat, lon, date, time, mobility }),
   });
   if (!res.ok) {
     const detail = await res.text();
@@ -19,11 +19,11 @@ export async function fetchRanking({ lat, lon, date, time }) {
   return res.json();
 }
 
-export async function fetchTimeline({ lat, lon, date }) {
+export async function fetchTimeline({ lat, lon, date, mobility = "walk" }) {
   const res = await fetch(`${API_BASE}/rank/timeline`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ lat, lon, date }),
+    body: JSON.stringify({ lat, lon, date, mobility }),
   });
   if (!res.ok) {
     const detail = await res.text();
@@ -38,8 +38,8 @@ export async function fetchNeedsVerification() {
   return res.json();
 }
 
-export async function fetchAedDetail({ aedId, lat, lon, date, time }) {
-  const params = new URLSearchParams({ lat, lon, date, time });
+export async function fetchAedDetail({ aedId, lat, lon, date, time, mobility = "walk" }) {
+  const params = new URLSearchParams({ lat, lon, date, time, mobility });
   const res = await fetch(`${API_BASE}/aed/${encodeURIComponent(aedId)}/detail?${params}`);
   if (!res.ok) {
     const detail = await res.text();

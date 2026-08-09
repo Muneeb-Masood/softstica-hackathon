@@ -66,6 +66,22 @@ dropped either (both returned in `excluded`):
 "unknown" hours status stays in the main list (with hours_confidence=0.0
 pulling its score down) rather than being excluded -- "we don't know" is
 not the same claim as "we know it's shut", and excluding it would guess.
+
+Mobility profile (stairs / wheelchair): rank_combined and
+rank_combined_timeline take a `mobility_profile` param ("walk" default,
+or "wheelchair"), passed straight through to
+distance_ranking.rank_by_walking_time -- see that module's docstring for
+the OSM-tag-derived route-quality flags (uses_stairs,
+crosses_unmarked_road, uses_permissive_access, mobility_note). "walk"
+still walks stairs (slower, flagged); "wheelchair" excludes stairs edges
+from pathfinding entirely, so an AED reachable only via stairs moves from
+`ranked` to `excluded` with reason="unreachable" and a mobility_note
+explaining specifically that the walking route requires stairs, distinct
+from an AED with no path in the network at all (mobility_note=None in
+that case). This is a routing-input choice, not a trust/confidence score
+-- it changes which physical path is searched, not how a fixed path is
+scored, so it lives in distance_ranking.py's graph selection, not as
+another sub-score weight here.
 """
 
 import math
@@ -73,6 +89,7 @@ from datetime import date as date_type, datetime, time as time_type
 from typing import Dict, List, Optional, Tuple, TypedDict
 
 from distance_ranking import (
+    MOBILITY_PROFILES,
     compute_snap_collision_confidence,
     load_aeds,
     load_walk_graph,
@@ -104,6 +121,9 @@ class RankedAed(TypedDict):
     trust_badge_reasons: List[str]
     trust_normalized: float
     final_score: float
+    uses_stairs: bool
+    crosses_unmarked_road: bool
+    uses_permissive_access: bool
 
 
 class ExcludedAed(TypedDict):
@@ -112,6 +132,7 @@ class ExcludedAed(TypedDict):
     reason: str  # "unreachable" or "closed"
     hours_status: Optional[str]
     walking_time_s: Optional[float]
+    mobility_note: Optional[str]
 
 
 def rank_combined(
@@ -120,9 +141,13 @@ def rank_combined(
     test_dt: datetime,
     aeds: Optional[List[dict]] = None,
     graph: Optional["object"] = None,
+    mobility_profile: str = "walk",
 ) -> Tuple[List[RankedAed], List[ExcludedAed]]:
     """
     Rank Sentosa AEDs for a test location, date, and time.
+
+    mobility_profile: "walk" (default) or "wheelchair" -- see module
+    docstring "Mobility profile" section.
 
     Returns (ranked, excluded):
         ranked   -- AEDs with a full final_score, sorted best first, every
@@ -135,7 +160,9 @@ def rank_combined(
     if graph is None:
         graph = load_walk_graph()
 
-    walking_by_id, distance_confidence_by_id = _shared_geometry(test_lat, test_lon, aeds, graph)
+    walking_by_id, distance_confidence_by_id = _shared_geometry(
+        test_lat, test_lon, aeds, graph, mobility_profile
+    )
     return _combine_for_datetime(test_dt, aeds, walking_by_id, distance_confidence_by_id)
 
 
@@ -144,6 +171,7 @@ def _shared_geometry(
     test_lon: float,
     aeds: List[dict],
     graph: "object",
+    mobility_profile: str = "walk",
 ) -> Tuple[dict, dict]:
     """
     The two sub-scores that depend only on test location + AED coordinates,
@@ -152,7 +180,9 @@ def _shared_geometry(
     since re-running shortest-path search 24x for a fixed location would be
     pure waste -- only hours_confidence actually varies by time.
     """
-    walking = rank_by_walking_time(test_lat, test_lon, aeds=aeds, graph=graph)
+    if mobility_profile not in MOBILITY_PROFILES:
+        raise ValueError(f"mobility_profile must be one of {MOBILITY_PROFILES}, got {mobility_profile!r}")
+    walking = rank_by_walking_time(test_lat, test_lon, aeds=aeds, graph=graph, mobility_profile=mobility_profile)
     walking_by_id = {r["aed_id"]: r for r in walking}
     distance_confidence_by_id = compute_snap_collision_confidence(aeds, graph)
     return walking_by_id, distance_confidence_by_id
@@ -184,6 +214,7 @@ def _combine_for_datetime(
                 reason="unreachable",
                 hours_status=None,
                 walking_time_s=None,
+                mobility_note=w.get("mobility_note"),
             ))
             continue
 
@@ -196,6 +227,7 @@ def _combine_for_datetime(
                 reason="closed",
                 hours_status=status,
                 walking_time_s=w["walking_time_s"],
+                mobility_note=None,
             ))
             continue
 
@@ -230,6 +262,9 @@ def _combine_for_datetime(
             trust_badge_reasons=trust_badge_reasons,
             trust_normalized=trust_normalized,
             final_score=final_score,
+            uses_stairs=bool(w["uses_stairs"]),
+            crosses_unmarked_road=bool(w["crosses_unmarked_road"]),
+            uses_permissive_access=bool(w["uses_permissive_access"]),
         ))
 
     ranked.sort(key=lambda r: -r["final_score"])
@@ -243,12 +278,17 @@ def rank_combined_timeline(
     aeds: Optional[List[dict]] = None,
     graph: Optional["object"] = None,
     hours: Optional[List[int]] = None,
+    mobility_profile: str = "walk",
 ) -> Dict[int, Tuple[datetime, List[RankedAed], List[ExcludedAed]]]:
     """
     Phase 9: rank_combined for every hour of one day at a fixed test
     location, without repeating the walking/distance-confidence geometry
     per hour -- only hours_confidence (and therefore the combined score and
     ranking order) actually depends on the hour.
+
+    mobility_profile: "walk" (default) or "wheelchair" -- see module
+    docstring "Mobility profile" section. Fixed for the whole timeline
+    query, same as the test location.
 
     Returns {hour: (test_dt, ranked, excluded)} for hour in `hours`
     (default 0..23).
@@ -260,7 +300,9 @@ def rank_combined_timeline(
     if hours is None:
         hours = list(range(24))
 
-    walking_by_id, distance_confidence_by_id = _shared_geometry(test_lat, test_lon, aeds, graph)
+    walking_by_id, distance_confidence_by_id = _shared_geometry(
+        test_lat, test_lon, aeds, graph, mobility_profile
+    )
 
     result: Dict[int, Tuple[datetime, List[RankedAed], List[ExcludedAed]]] = {}
     for h in hours:

@@ -17,9 +17,44 @@ neither accounts for operating hours or trust score yet (that's Phase 5).
 
 Walking-time assumption: OSM pedestrian ways in this bbox don't carry
 reliable per-edge walking-speed tags, so travel time is derived from a
-single constant assumed walking speed (WALKING_SPEED_M_PER_S below)
-applied to the shortest-path distance, not per-edge speed data. This is a
-documented simplification, not a measured or live speed.
+constant assumed walking speed (WALKING_SPEED_M_PER_S below) applied per
+edge, except edges tagged highway=steps, which use a separate slower
+STAIRS_SPEED_M_PER_S constant (see "Route-quality flags" below). Both are
+documented planning-level simplifications, not measured or live speeds.
+
+Route-quality flags (mobility profile support): the cached graph already
+carries OSM tags beyond "length" that were being downloaded and silently
+discarded. Three are now read, per edge, along the actual shortest path
+chosen for each AED:
+    highway == "steps"            -- a staircase segment. Walked at
+        STAIRS_SPEED_M_PER_S instead of WALKING_SPEED_M_PER_S in the
+        default "walk" mobility profile (still passable, just slower and
+        flagged via uses_stairs=True on the result). In the "wheelchair"
+        profile these edges are removed from the graph entirely before
+        pathfinding -- not slowed down, not scored as passable-but-risky,
+        excluded outright -- because no wheelchair=yes/ramp tag exists on
+        any of them to say otherwise, and guessing one is passable would
+        misrepresent certainty we don't have.
+    highway in ROAD_HIGHWAY_TYPES  -- a vehicle-carrying road segment
+        (confirmed empirically against this bbox's own maxspeed tags --
+        "unclassified" carries 40-50 km/h maxspeed on 112 of 124 such
+        edges here, "secondary" and "residential" both carry 50;
+        "footway"/"steps"/"path"/"service" are excluded from this set as
+        pedestrian-only or low-traffic driveways). If the path crosses
+        such an edge and neither endpoint node is OSM-tagged
+        highway=="crossing" (a marked pedestrian crossing), the route is
+        flagged crosses_unmarked_road=True -- a real map fact, not an
+        assumption about actual traffic volume.
+    access == "permissive"        -- the way is not a full public
+        right-of-way, just tolerated. Flagged uses_permissive_access=True
+        -- a confidence/trust-style caveat, same spirit as
+        compute_snap_collision_confidence below.
+None of these three invents a number (no fabricated time delay, no
+fabricated danger score) -- they are pass/fail facts read directly from
+tags already present in the downloaded graph, surfaced so the ranking
+layer and UI can say plainly what kind of route each AED actually has,
+matching the same "show uncertainty, never invent it" principle used for
+access-barrier detection in trust_score.py.
 
 AEDs whose nearest graph node is not connected to the test point's node
 (no path exists in the walking network -- e.g. isolated pedestrian islands
@@ -53,7 +88,7 @@ distinct_snap_nodes/indoor_snap_degenerate (see crowd_simulation.py).
 import json
 import math
 import os
-from typing import List, Optional, TypedDict
+from typing import List, Optional, Tuple, TypedDict
 
 import networkx as nx
 import osmnx as ox
@@ -68,6 +103,26 @@ EARTH_RADIUS_M = 6_371_000.0
 # simplification applied uniformly to shortest-path distance, not measured
 # or live data. ~4.8 km/h, a standard planning-level walking pace.
 WALKING_SPEED_M_PER_S = 1.34
+
+# Assumed constant stair-climbing pace, applied only to edges tagged
+# highway=steps. Roughly 1.8 km/h horizontal-equivalent -- a documented
+# planning-level assumption (real pace varies hugely by step count/rise),
+# deliberately much slower than flat WALKING_SPEED_M_PER_S rather than a
+# measured value. Only used in the "walk" mobility profile; "wheelchair"
+# removes these edges outright instead of slowing them down (see module
+# docstring).
+STAIRS_SPEED_M_PER_S = 0.5
+
+# highway tags treated as vehicle-carrying roads for the crosses_unmarked_road
+# flag, chosen by inspecting this bbox's own maxspeed tags (see module
+# docstring) rather than assumed from OSM's general road hierarchy --
+# "unclassified" is Sentosa's internal road class and does carry real
+# vehicle maxspeeds here, so it's included even though it's often low-traffic
+# elsewhere. "service" is excluded: in this bbox it's almost entirely
+# driveways/carpark aisles with no maxspeed tag.
+ROAD_HIGHWAY_TYPES = {"secondary", "unclassified", "residential"}
+
+MOBILITY_PROFILES = ("walk", "wheelchair")
 
 
 class AedDistance(TypedDict):
@@ -133,13 +188,53 @@ class AedWalkingResult(TypedDict):
     reachable: bool
     walking_distance_m: Optional[float]
     walking_time_s: Optional[float]
+    uses_stairs: Optional[bool]
+    crosses_unmarked_road: Optional[bool]
+    uses_permissive_access: Optional[bool]
+    mobility_note: Optional[str]
 
 
 _graph_cache: Optional["ox.MultiDiGraph"] = None
+_wheelchair_graph_cache: Optional["ox.MultiDiGraph"] = None
+
+
+def _highway_has(value, tag: str) -> bool:
+    """
+    osmnx returns an edge's `highway` (and similarly `access`) tag as a
+    single string, or as a list when graph simplification merged multiple
+    OSM ways with different tag values into one edge. Handle both the same
+    way rather than special-casing every call site.
+    """
+    if isinstance(value, (list, tuple)):
+        return tag in value
+    return value == tag
+
+
+def _annotate_graph(graph: "ox.MultiDiGraph") -> None:
+    """
+    Mutates edge data in place to add the derived route-quality fields
+    described in the module docstring: time_s (per-edge walking time,
+    slower on highway=steps), is_steps, is_road_crossing, is_permissive.
+    Idempotent (checked via the "time_s" key) so calling this more than
+    once on the same graph object is a no-op.
+    """
+    for _u, _v, _k, data in graph.edges(keys=True, data=True):
+        if "time_s" in data:
+            continue
+        highway = data.get("highway")
+        is_steps = _highway_has(highway, "steps")
+        speed = STAIRS_SPEED_M_PER_S if is_steps else WALKING_SPEED_M_PER_S
+        data["time_s"] = data["length"] / speed
+        data["is_steps"] = is_steps
+        data["is_road_crossing"] = any(_highway_has(highway, t) for t in ROAD_HIGHWAY_TYPES)
+        data["is_permissive"] = data.get("access") == "permissive"
 
 
 def load_walk_graph() -> "ox.MultiDiGraph":
-    """Load the cached Sentosa walking graph from disk (never re-downloads)."""
+    """
+    Load the cached Sentosa walking graph from disk (never re-downloads),
+    annotated once with the derived route-quality fields (_annotate_graph).
+    """
     global _graph_cache
     if _graph_cache is None:
         if not os.path.exists(GRAPH_PATH):
@@ -148,7 +243,65 @@ def load_walk_graph() -> "ox.MultiDiGraph":
                 "download and cache the walking network."
             )
         _graph_cache = ox.load_graphml(GRAPH_PATH)
+        _annotate_graph(_graph_cache)
     return _graph_cache
+
+
+def load_wheelchair_graph(graph: Optional["ox.MultiDiGraph"] = None) -> "ox.MultiDiGraph":
+    """
+    A copy of the walking graph with every highway=steps edge removed
+    entirely -- the "wheelchair" mobility profile pathfinds on this graph
+    instead of the full one, so a shortest path can never silently route
+    someone through a staircase. No wheelchair=yes/ramp tag exists on any
+    Sentosa steps edge to say a staircase is actually passable, so it is
+    excluded outright rather than scored as passable-but-slow (module
+    docstring). Built once and cached at module level.
+    """
+    global _wheelchair_graph_cache
+    if _wheelchair_graph_cache is None:
+        base = graph if graph is not None else load_walk_graph()
+        wheelchair_graph = base.copy()
+        steps_edges = [
+            (u, v, k)
+            for u, v, k, data in wheelchair_graph.edges(keys=True, data=True)
+            if data.get("is_steps")
+        ]
+        wheelchair_graph.remove_edges_from(steps_edges)
+        _wheelchair_graph_cache = wheelchair_graph
+    return _wheelchair_graph_cache
+
+
+def _walk_path(graph: "ox.MultiDiGraph", path: List) -> Tuple[float, bool, bool, bool]:
+    """
+    Walk a shortest-path node sequence, summing real distance and reading
+    the OSM-tag-derived route-quality flags off the specific edges Dijkstra
+    actually used -- the minimum-time_s edge between each consecutive node
+    pair, since a MultiDiGraph can carry more than one edge between the
+    same two nodes.
+
+    Returns (distance_m, uses_stairs, crosses_unmarked_road, uses_permissive_access).
+    """
+    distance_m = 0.0
+    uses_stairs = False
+    crosses_unmarked_road = False
+    uses_permissive_access = False
+
+    for u, v in zip(path, path[1:]):
+        parallel = graph.get_edge_data(u, v)
+        edge = min(parallel.values(), key=lambda d: d.get("time_s", float("inf")))
+        distance_m += edge["length"]
+
+        if edge.get("is_steps"):
+            uses_stairs = True
+        if edge.get("is_road_crossing"):
+            u_is_crossing = graph.nodes[u].get("highway") == "crossing"
+            v_is_crossing = graph.nodes[v].get("highway") == "crossing"
+            if not (u_is_crossing or v_is_crossing):
+                crosses_unmarked_road = True
+        if edge.get("is_permissive"):
+            uses_permissive_access = True
+
+    return distance_m, uses_stairs, crosses_unmarked_road, uses_permissive_access
 
 
 def rank_by_walking_time(
@@ -156,39 +309,75 @@ def rank_by_walking_time(
     test_lon: float,
     aeds: Optional[List[dict]] = None,
     graph: Optional["ox.MultiDiGraph"] = None,
+    mobility_profile: str = "walk",
 ) -> List[AedWalkingResult]:
     """
     Rank all Sentosa AEDs by real walking-network time from a test point.
 
     Snaps the test point and every AED to their nearest graph node, then
-    uses a networkx single-source Dijkstra shortest path (weighted by edge
-    length in meters) to compute real walking distance, converted to time
-    via WALKING_SPEED_M_PER_S. AEDs with no path from the test point in the
-    walking network are returned with reachable=False rather than being
-    dropped or raising.
+    uses a networkx single-source Dijkstra shortest path -- weighted by
+    time_s, a per-edge time that's slower on highway=steps edges than flat
+    ground (module docstring) -- to compute real walking time, distance,
+    and the route-quality flags read off the actual path taken. AEDs with
+    no path from the test point in the walking network are returned with
+    reachable=False rather than being dropped or raising.
+
+    mobility_profile: "walk" (default) allows every pedestrian edge,
+    including stairs (slower, and flagged via uses_stairs=True).
+    "wheelchair" pathfinds on load_wheelchair_graph() instead, which has
+    every stairs edge removed outright -- an AED only reachable via a
+    staircase becomes reachable=False under this profile, with
+    mobility_note explaining that a walking (non-wheelchair) route exists
+    but requires stairs, so "no route at all" isn't confused with "no
+    route without stairs".
     """
+    if mobility_profile not in MOBILITY_PROFILES:
+        raise ValueError(f"mobility_profile must be one of {MOBILITY_PROFILES}, got {mobility_profile!r}")
+
     if aeds is None:
         aeds = load_aeds()
     if graph is None:
         graph = load_walk_graph()
 
-    test_node = ox.distance.nearest_nodes(graph, X=test_lon, Y=test_lat)
+    active_graph = graph if mobility_profile == "walk" else load_wheelchair_graph(graph)
+
+    test_node = ox.distance.nearest_nodes(active_graph, X=test_lon, Y=test_lat)
 
     # Single-source Dijkstra from the test node covers every reachable node
-    # in one pass, rather than running shortest_path_length once per AED.
-    lengths_m = nx.single_source_dijkstra_path_length(graph, test_node, weight="length")
+    # in one pass, rather than running shortest_path once per AED. Returns
+    # both time-to-reach and the actual path (needed for the route flags).
+    times_s, paths = nx.single_source_dijkstra(active_graph, test_node, weight="time_s")
+
+    # Only needed for the wheelchair profile, to tell "no path at all"
+    # apart from "no path without stairs" for mobility_note below. Cheap
+    # relative to the profile's own search (657 nodes total).
+    walk_reachable_nodes = None
+    if mobility_profile == "wheelchair":
+        walk_reachable_nodes = set(
+            nx.single_source_dijkstra_path_length(graph, test_node, weight="time_s")
+        )
 
     aed_lons = [props["LONGITUDE"] for props in aeds]
     aed_lats = [props["LATITUDE"] for props in aeds]
-    aed_nodes = ox.distance.nearest_nodes(graph, X=aed_lons, Y=aed_lats)
+    aed_nodes = ox.distance.nearest_nodes(active_graph, X=aed_lons, Y=aed_lats)
 
     ranked: List[AedWalkingResult] = []
     for props, aed_node in zip(aeds, aed_nodes):
         lat = props["LATITUDE"]
         lon = props["LONGITUDE"]
-        dist_m = lengths_m.get(aed_node)
+        time_s = times_s.get(aed_node)
 
-        if dist_m is None:
+        if time_s is None:
+            mobility_note = None
+            if (
+                mobility_profile == "wheelchair"
+                and walk_reachable_nodes is not None
+                and aed_node in walk_reachable_nodes
+            ):
+                mobility_note = (
+                    "A walking route exists but requires stairs; no stairs-free "
+                    "path was found in the mapped pedestrian network."
+                )
             ranked.append(
                 AedWalkingResult(
                     aed_id=props["AED_ID"],
@@ -198,9 +387,17 @@ def rank_by_walking_time(
                     reachable=False,
                     walking_distance_m=None,
                     walking_time_s=None,
+                    uses_stairs=None,
+                    crosses_unmarked_road=None,
+                    uses_permissive_access=None,
+                    mobility_note=mobility_note,
                 )
             )
         else:
+            path = paths[aed_node]
+            distance_m, uses_stairs, crosses_unmarked_road, uses_permissive_access = _walk_path(
+                active_graph, path
+            )
             ranked.append(
                 AedWalkingResult(
                     aed_id=props["AED_ID"],
@@ -208,8 +405,12 @@ def rank_by_walking_time(
                     latitude=lat,
                     longitude=lon,
                     reachable=True,
-                    walking_distance_m=dist_m,
-                    walking_time_s=dist_m / WALKING_SPEED_M_PER_S,
+                    walking_distance_m=distance_m,
+                    walking_time_s=time_s,
+                    uses_stairs=uses_stairs,
+                    crosses_unmarked_road=crosses_unmarked_road,
+                    uses_permissive_access=uses_permissive_access,
+                    mobility_note=None,
                 )
             )
 

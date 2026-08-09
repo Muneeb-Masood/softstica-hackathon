@@ -88,6 +88,16 @@ function ExplanationBlock({ state, preloadedExplanation }) {
   );
 }
 
+// Deterministic, always-shown (never gated behind "Why this rank?") -- the
+// backend computes this straight from OSM-tag-derived route facts
+// (uses_stairs, crosses_unmarked_road, uses_permissive_access), not from
+// Gemini, precisely so a stairs warning can never be missed or paraphrased
+// away. See backend/main.py _mobility_warning.
+function MobilityWarning({ text }) {
+  if (!text) return null;
+  return <p className="mobility-warning">{text}</p>;
+}
+
 function RankedCard({ rank, aed, index, explanations, note, query, detailState, onToggle }) {
   const preloadedExplanation = preloadedExplanationFor(aed, index, explanations);
   const state = detailState[aed.aed_id];
@@ -105,7 +115,11 @@ function RankedCard({ rank, aed, index, explanations, note, query, detailState, 
         <span>{HOURS_STATUS_LABEL[aed.hours_status] || aed.hours_status}</span>
         <span>Hours confidence: {formatPercent(aed.hours_confidence)}</span>
         <span>Score: {aed.final_score.toFixed(3)}</span>
+        {aed.uses_stairs && <span className="route-flag route-flag-stairs">Includes stairs</span>}
+        {aed.crosses_unmarked_road && <span className="route-flag route-flag-road">Unmarked road crossing</span>}
+        {aed.uses_permissive_access && <span className="route-flag route-flag-permissive">Permissive-access path</span>}
       </div>
+      <MobilityWarning text={aed.mobility_warning} />
       <TrustReasons badge={aed.trust_badge} reasons={aed.trust_badge_reasons} />
       {index === 0 && note && <p className="result-explanation-note">{note}</p>}
       <WhyButton state={state} onClick={() => onToggle(aed, preloadedExplanation, query)} />
@@ -119,14 +133,21 @@ function ExcludedCard({ aed, query, detailState, onToggle }) {
   return (
     <div className="result-card excluded-card">
       <div className="result-card-head">
-        <span className="pill pill-excluded">{aed.reason === "closed" ? "Closed now" : "Unreachable"}</span>
+        <span className="pill pill-excluded">
+          {aed.reason === "closed"
+            ? "Closed now"
+            : aed.mobility_note
+            ? "No stairs-free route"
+            : "Unreachable"}
+        </span>
         <span className="result-name">{aed.building_name || aed.aed_id}</span>
       </div>
       <div className="result-subscores">
         {aed.reason === "closed" && (
           <span>Walk: {formatWalkingTime(aed.walking_time_s)}</span>
         )}
-        {aed.reason === "unreachable" && <span>No path found on the walking network</span>}
+        {aed.reason === "unreachable" && !aed.mobility_note && <span>No path found on the walking network</span>}
+        {aed.mobility_note && <span>{aed.mobility_note}</span>}
       </div>
       <WhyButton state={state} onClick={() => onToggle(aed, null, query)} />
       <ExplanationBlock state={state} preloadedExplanation={null} />
@@ -168,6 +189,7 @@ export default function ResultsPanel({ ranking, loading, error }) {
         lon: q.lon,
         date: q.date,
         time: q.time,
+        mobility: q.mobility,
       });
       setDetailState((prev) => ({
         ...prev,
