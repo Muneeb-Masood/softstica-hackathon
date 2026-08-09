@@ -1,11 +1,11 @@
 export default function DisclaimerBanner() {
   return (
     <div id="disclaimer-banner" role="alert">
-      <strong>Simulation only</strong> — this tool ranks AEDs from historical
-      registry data for planning and preparedness. It is <strong>not</strong>{" "}
-      live emergency guidance and does not reflect real-time AED
-      availability or working condition. In a real emergency, call your
-      local emergency number immediately.
+      <strong>Prototype for planning and simulation only—not for emergency
+      use.</strong> In an emergency in Singapore, call <strong>995</strong>{" "}
+      immediately and follow SCDF instructions. This tool ranks AEDs from
+      historical registry data and does not reflect live AED availability
+      or working condition.
     </div>
   );
 }

@@ -43,9 +43,11 @@ from explanation import (
 from trust_score import explain_trust_score, score_aed_properties
 
 DISCLAIMER = (
-    "This is a simulation/preparedness tool using historical registry "
-    "data. It does not reflect live AED availability, working "
-    "condition, or real-time emergency guidance."
+    "Prototype for planning and simulation only—not for emergency use. "
+    "In an emergency in Singapore, call 995 immediately and follow SCDF "
+    "instructions. This tool uses historical registry data and does not "
+    "reflect live AED availability, working condition, or real-time "
+    "emergency guidance."
 )
 
 app = FastAPI(title="AED Discovery & Routing (Sentosa Prototype)")

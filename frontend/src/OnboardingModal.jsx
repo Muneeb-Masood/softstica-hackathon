@@ -25,7 +25,9 @@ export default function OnboardingModal({ onClose }) {
           re-verification — each section in the sidebar has a short explainer.
         </p>
         <p className="modal-emergency-note">
-          In a real emergency, call your local emergency number immediately.
+          <strong>Prototype for planning and simulation only—not for
+          emergency use.</strong> In an emergency in Singapore, call{" "}
+          <strong>995</strong> immediately and follow SCDF instructions.
         </p>
         <button type="button" className="modal-close-button" onClick={onClose} autoFocus>
           Got it, let's start

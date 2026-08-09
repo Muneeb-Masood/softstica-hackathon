@@ -236,6 +236,14 @@ nearest-neighbor, ignoring hours, trust, and walkability.
 **Final**: `rank_combined` — real walking-network time + distance
 confidence + hours confidence + trust score, weighted as in §2.5.
 
+**Primary metric (nominated):** Top-1 disagreement rate against the
+straight-line baseline (§3.1/§4.1) — it most directly answers the brief's
+core question of whether accounting for the walking network, hours, and
+trust actually changes which AED a planner would be told to go to, rather
+than just re-ordering already-correct answers. Effectiveness (§3.1),
+safety/error (§3.2), and performance/usability (§3.3) are reported
+alongside it, not instead of it.
+
 ### 3.1 Effectiveness
 > _See §4 for the exact benchmark numbers, run across 200 sampled
 > walking-graph node coordinates as test points against the ranking
@@ -362,7 +370,41 @@ planner's attention beyond the average case.
 **No hosting/deployment — this prototype runs locally only**, per project
 decision; the steps below reproduce the local demo, not a hosted deployment.
 
-### 5.1 What's included
+### 5.1 Data manifest
+
+**Primary dataset**
+| | |
+|---|---|
+| Name | Public Access AEDs |
+| Publisher | Singapore Civil Defence Force (SCDF) |
+| Source URL | https://data.gov.sg (dataset: Public Access AEDs) |
+| Version / retrieval date | Downloaded 2026-08-08, saved as `AED_LOCATIONS.geojson` (national file, ~9,000–10,000 records) |
+| Licence | [Singapore Open Data Licence, version 1.0](https://data.gov.sg/open-data-licence) — free to use, share, and adapt (commercially or non-commercially), provided the source is attributed and the use is not presented as officially endorsed. This document and the in-app disclaimer both carry that attribution. |
+| Fields used | `AED_ID`, `LATITUDE`, `LONGITUDE`, `BUILDING_NAME`, `HOUSE_NUMBER`, `ROAD_NAME`, `POSTAL_CODE`, `AED_LOCATION_FLOOR_LEVEL`, `AED_LOCATION_DESCRIPTION`, `OPERATING_HOURS` |
+| Transformations | Bounding-box filter to Sentosa (lon 103.815–103.825, lat 1.245–1.260) → `backend/sentosa_aeds.geojson` (66 records); no field-level edits, additions, or corrections to source values — parsed/derived fields (hours status, trust score, etc.) are computed and stored separately, never overwrite the source fields. |
+
+**Supplemental dataset**
+| | |
+|---|---|
+| Name | OpenStreetMap pedestrian network + building footprints (Sentosa bounding box) |
+| Publisher | OpenStreetMap contributors, via the `osmnx` Python package |
+| Source URL | https://www.openstreetmap.org (data), https://osmnx.readthedocs.io (fetch tool) |
+| Version / retrieval date | Downloaded 2026-08-09, cached as `backend/sentosa_walk_graph_augmented.graphml` and `backend/sentosa_building_footprints.geojson`; never re-downloaded live during the demo |
+| Licence | [Open Database License (ODbL) 1.0](https://www.openstreetmap.org/copyright) — requires attribution: **© OpenStreetMap contributors**, and that any produced database derived from it (the cached graph) remains available under ODbL or a compatible licence if redistributed |
+| Fields used | Pedestrian-relevant way/node tags (highway type, `steps`, access tags), building footprint polygons within 25m of an AED |
+| Transformations | Downloaded via `osmnx` for the Sentosa bbox → augmented with synthetic entrance nodes sampled around building footprint perimeters (§2.4, `entrance_augmentation.py`) → cached to `.graphml`. Synthetic entrance edges are tagged `synthetic=True` end-to-end and are never presented as surveyed doorways. |
+
+**Frozen file checksums** (SHA-256, for verifying a copy matches what this
+evaluation was run against):
+```
+AED_LOCATIONS.geojson                     e2ef793ffd0fd2dbe99ffdcfb21b38154c81fd0685d1f0fcc5b75a6d57205c02
+backend/sentosa_aeds.geojson              49bc11149782a2f9140d47fd086cbe75fd304c32f4dcbc2ec4f5667ab1d85e57
+backend/sentosa_building_footprints.geojson  167d3a9aef1e83bcfe37f78d8c550959cee91464609a67e8159947e538b2b0f1
+backend/sentosa_walk_graph_augmented.graphml 7c3444d3820d06d4b28b3ff720f1a8dda5af9bf6d6c03e99c3cf7d99ef5fb67c
+```
+Regenerate and compare with (PowerShell): `certutil -hashfile <path> SHA256`.
+
+### 5.2 What's included
 - Filtered dataset: `backend/sentosa_aeds.geojson` (66 records).
 - Documented bounding box: lon 103.815–103.825, lat 1.245–1.260.
 - Cached walking graph: `backend/sentosa_walk_graph_augmented.graphml`
@@ -372,8 +414,10 @@ decision; the steps below reproduce the local demo, not a hosted deployment.
 - `backend/.env.example` — copy to `backend/.env` and fill in
   `GEMINI_API_KEY` (only used for §2.6/§2.7's narrow, cached explanation/
   chat calls; the core ranking math runs with no API key at all).
+- No API keys are committed to the repo: `backend/.env` is gitignored, and
+  the only tracked file is `.env.example` with a placeholder value.
 
-### 5.2 Backend setup (Windows, PowerShell)
+### 5.3 Backend setup (Windows, PowerShell)
 ```powershell
 cd backend
 python -m venv venv
@@ -386,7 +430,7 @@ Verify with `GET http://localhost:8000/health` — should report
 `data_loaded: true` and a `startup_time_s` in the low hundreds of
 milliseconds (data + cached graph load, no network calls at startup).
 
-### 5.3 Frontend setup
+### 5.4 Frontend setup
 ```powershell
 cd frontend
 npm install
@@ -395,7 +439,7 @@ npm run dev
 Opens the Vite dev server (default `http://localhost:5173`), which calls
 the backend at `http://localhost:8000`.
 
-### 5.4 Regenerating the filtered dataset / graph from scratch (optional)
+### 5.5 Regenerating the filtered dataset / graph from scratch (optional)
 Only needed if starting from the raw national `AED_LOCATIONS.geojson`:
 1. Bounding-box filter to Sentosa → `sentosa_aeds.geojson` (Phase 1 script).
 2. `build_building_footprints.py` — download OSM building footprints near
@@ -406,7 +450,7 @@ Only needed if starting from the raw national `AED_LOCATIONS.geojson`:
 Not required for a normal run — both cached files are already committed so
 the backend never re-downloads from OSM live during a demo.
 
-### 5.5 Tests
+### 5.6 Tests
 `backend/test_hours_parser.py`, `test_trust_score.py`,
 `test_crowd_simulation.py`, `test_timeline_explanations.py` — run with
 `pytest` from `backend/` (venv activated).
@@ -415,13 +459,36 @@ the backend never re-downloads from OSM live during a demo.
 
 ## 6. Safety and Privacy Statement
 
+**Required disclaimer (shown on every screen/demo).** Every user-facing
+screen displays, verbatim:
+
+> Prototype for planning and simulation only—not for emergency use. In an
+> emergency in Singapore, call 995 immediately and follow SCDF instructions.
+
+This is the live `DISCLAIMER` string in `backend/main.py`, returned on
+every `/rank`, `/rank/timeline`, `/crowd-simulation`, `/route`, and `/chat`
+response, and rendered persistently in the frontend (`DisclaimerBanner.jsx`,
+shown on every screen, and `OnboardingModal.jsx`, shown on first load).
+
 **Safety.**
+- **No live emergency dispatch.** This tool does not call, page, or notify
+  any emergency service, responder, or venue staff — it only computes and
+  displays a ranking.
+- **No 995 integration.** The tool never contacts, simulates contacting, or
+  claims to contact SCDF's 995 emergency line; the disclaimer above directs
+  the user to call 995 themselves, entirely outside the tool.
+- **No myResponder integration.** This prototype has no connection to
+  SCDF's myResponder app or its volunteer-responder network, and does not
+  claim to.
+- **No claim of current AED availability or working condition.** The
+  dataset is a historical registry snapshot (§5.1); the tool never asserts
+  that any specific AED is present, powered, or functional right now.
+- **Dataset date is stated plainly.** National AED registry data retrieved
+  2026-08-08 (§5.1); every export/output based on it should be read as of
+  that date, not "live."
 - This is a **simulation/preparedness tool**. It never presents a route,
   operating-hours parse, or trust score as verified, live, or guaranteed —
-  every screen surfaces a persistent disclaimer to that effect
-  (`main.py`'s `DISCLAIMER`, shown on `/rank`, `/rank/timeline`,
-  `/crowd-simulation`, `/route`, and `/chat` responses, and rendered
-  persistently in the frontend UI).
+  every screen surfaces the persistent disclaimer above.
 - Operating-hours status is a **confidence estimate from historical
   registry text**, never a live availability check — the dataset contains
   no real-time signal at all.
@@ -441,6 +508,18 @@ the backend never re-downloads from OSM live during a demo.
   plain-language warnings rather than absorbed silently into a score,
   because a routing choice with real physical-access consequences should
   never be invisible to the person relying on it.
+- **Safe failure when accessibility is uncertain.** An AED with no path in
+  the walking network, or confidently closed at the test time, is excluded
+  from the ranked list rather than scored as if reachable/open (§2.5, §3.2);
+  `unknown` hours status stays visible but scored as non-confident, never
+  guessed as open.
+- **All assumptions are documented, not silent** — constant walking speed,
+  the 20-minute time-decay scale, trust-badge thresholds, and the
+  basement-floor-hours question are listed explicitly in §2.8 rather than
+  left implicit in the code.
+- **Crowd-simulation start points are synthetic**, generated on a grid over
+  a chosen attraction's footprint — never real visitor GPS traces, footfall
+  counts, or any other real user data (§4.2 of `README.md`).
 
 **Privacy.**
 - The dataset contains no personal or patient information — only public
